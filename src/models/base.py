@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from src.evidence.chain import Evidence
 
 
-class ModelCapability(str, Enum):
+class ModelCapability(StrEnum):
     """What a geo model can do."""
 
     COORDINATE_PREDICTION = "coordinate_prediction"
@@ -44,7 +44,7 @@ class GeoModel(ABC):
     async def predict(
         self,
         image_path: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> list[dict]:
         """Run prediction on an image.
 

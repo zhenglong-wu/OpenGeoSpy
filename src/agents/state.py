@@ -7,9 +7,9 @@ Uses Annotated reducers for safe parallel state merging.
 from __future__ import annotations
 
 import operator
-from typing import Any, Optional
+from typing import Annotated, Any
 
-from typing_extensions import Annotated, TypedDict
+from typing_extensions import TypedDict
 
 from src.evidence.chain import Evidence
 from src.search.graph import SearchGraph
@@ -35,7 +35,7 @@ class PipelineState(TypedDict, total=False):
 
     # --- Inputs (set once at START) ---
     image_path: str
-    location_hint: Optional[str]
+    location_hint: str | None
     session_id: str
     quality: str
 
@@ -51,7 +51,7 @@ class PipelineState(TypedDict, total=False):
     candidates: Annotated[list[dict], operator.add]
 
     # --- Search graph (set by web_intel node) ---
-    search_graph: Optional[SearchGraph]
+    search_graph: SearchGraph | None
 
     # --- Final output (set by reasoning node) ---
     prediction: dict
@@ -63,17 +63,17 @@ class PipelineState(TypedDict, total=False):
     weak_evidence_areas: list[str]
     should_refine: bool
     skip_full_verification: bool
-    fast_path_reason: Optional[str]
+    fast_path_reason: str | None
     early_exit: bool
 
     # --- Chat history ---
     messages: Annotated[list[dict], operator.add]
 
     # --- Tracing ---
-    trace_recorder: Optional[Any]  # TraceRecorder (optional, avoids circular import)
+    trace_recorder: Any | None  # TraceRecorder (optional, avoids circular import)
 
     # --- Shared resources ---
-    _base_llm_client: Optional[Any]  # AsyncOpenAI shared across nodes
+    _base_llm_client: Any | None  # AsyncOpenAI shared across nodes
 
     # --- Pipeline metadata ---
     step_results: Annotated[list[dict], operator.add]

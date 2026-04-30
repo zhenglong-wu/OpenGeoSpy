@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -55,12 +55,12 @@ class SessionManager:
         self._sessions[session.id] = session
         return session
 
-    def get(self, session_id: str) -> Optional[Session]:
+    def get(self, session_id: str) -> Session | None:
         """Retrieve a session by ID (returns None if expired/missing)."""
         self._cleanup()
         return self._sessions.get(session_id)
 
-    def update(self, session_id: str, pipeline_state: dict) -> Optional[Session]:
+    def update(self, session_id: str, pipeline_state: dict) -> Session | None:
         """Update session pipeline state."""
         session = self._sessions.get(session_id)
         if session:

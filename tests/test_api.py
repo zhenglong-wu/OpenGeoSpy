@@ -29,8 +29,9 @@ def client():
 
         from src.api.app import create_app
         app = create_app()
-        app.state.orchestrator = mock_orch
-        yield TestClient(app)
+        with TestClient(app) as tc:
+            app.state.orchestrator = mock_orch
+            yield tc
 
 
 class TestHealthEndpoint:

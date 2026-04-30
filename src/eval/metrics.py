@@ -6,7 +6,6 @@ country/city accuracy, ECE, cost stats.
 
 from __future__ import annotations
 
-import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
@@ -179,7 +178,7 @@ class EvalMetrics:
             bins[bin_idx].append(r)
 
         ece_sum = 0.0
-        for i, bin_results in enumerate(bins):
+        for _i, bin_results in enumerate(bins):
             if not bin_results:
                 continue
             avg_conf = sum(r.pred_confidence for r in bin_results) / len(bin_results)

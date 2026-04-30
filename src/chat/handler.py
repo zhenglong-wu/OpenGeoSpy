@@ -7,15 +7,16 @@ counter-evidence lookup, candidate comparison, etc.
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from loguru import logger
 from openai import AsyncOpenAI
 
 from src.chat.intent import ChatIntent, classify_intent
 from src.chat.session import Session, SessionManager
-from src.config.settings import Settings
 from src.config.llm import LLMCallType, get_llm_params
+from src.config.settings import Settings
 from src.evidence.chain import Evidence, EvidenceChain, EvidenceSource
 
 
@@ -194,7 +195,7 @@ Be specific and cite evidence sources."""
         self, session: Session, message: str
     ) -> AsyncGenerator[dict, None]:
         """Handle user providing a location hint.
-        
+
         This:
         1. Adds the hint as evidence
         2. Runs FRESH discovery searches with hint + ALL existing context (ML predictions, OCR, landmarks, etc.)
@@ -225,12 +226,12 @@ Be specific and cite evidence sources."""
 
         # --- Run FRESH discovery searches with FULL context + hint ---
         yield {"event": "chat_step", "step": f"Running fresh discovery searches for '{hint_text}'..."}
-        
+
         new_evidence_count = 0
         try:
             from src.agents.web_intel_agent import WebIntelAgent
             from src.cache import CacheStore
-            
+
             # IMPORTANT: Pass the FULL chain (with all ML predictions, OCR, features, etc.)
             # This allows the search to use ALL context for better query building
             search_chain = EvidenceChain()
@@ -239,11 +240,11 @@ Be specific and cite evidence sources."""
             # Then add ALL existing evidence for context-rich searching
             for e in chain.evidences:
                 search_chain.add(e)
-            
+
             # Get OCR/features from session if available
             ocr_result = session.pipeline_state.get("ocr_result")
             features = session.pipeline_state.get("features")
-            
+
             # Run web intel agent with FULL context
             web_agent = WebIntelAgent(self.settings, cache=CacheStore.in_memory())
             new_chain, search_graph = await web_agent.search(
@@ -253,25 +254,25 @@ Be specific and cite evidence sources."""
                 weak_areas=None,
             )
             await web_agent.close()
-            
+
             # Merge new evidences into session
             new_evidence_count = len(new_chain.evidences)
             if new_evidence_count > 0:
                 yield {"event": "chat_step", "step": f"Found {new_evidence_count} new evidence items!"}
-                
+
                 # Track new evidence hashes for smart filtering later
                 new_evidence_hashes = {e.content_hash for e in new_chain.evidences}
-                
+
                 # Add new evidences to the main chain
                 for e in new_chain.evidences:
                     chain.add(e)
-                    
+
                 logger.info("Hint search found {} new evidences for '{}'", new_evidence_count, hint_text)
             else:
                 new_evidence_hashes = set()
         except Exception as e:
             logger.warning("Hint-based search failed: {}", e)
-            yield {"event": "chat_step", "step": f"Search encountered an issue, proceeding with existing evidence..."}
+            yield {"event": "chat_step", "step": "Search encountered an issue, proceeding with existing evidence..."}
             new_evidence_hashes = set()
 
         # Smart filtering: Only filter ML model predictions that contradict the hint
@@ -281,25 +282,25 @@ Be specific and cite evidence sources."""
         hint_country = extract_country_from_location(hint_text)
         if hint_country:
             yield {"event": "chat_step", "step": f"Filtering predictions to {hint_text} region..."}
-            
+
             # Filter ML model predictions (GeoCLIP, StreetCLIP, etc.) that don't match the hint
             # Also filter OLD web results that don't match (new ones are kept unconditionally)
             ml_sources = {
-                EvidenceSource.GEOCLIP, 
-                EvidenceSource.STREETCLIP, 
+                EvidenceSource.GEOCLIP,
+                EvidenceSource.STREETCLIP,
                 EvidenceSource.PIGEON,
                 EvidenceSource.VLM_GEO,
                 EvidenceSource.VISUAL_MATCH,  # Also a visual model prediction
             }
             web_sources = {
-                EvidenceSource.SERPER, 
-                EvidenceSource.BRAVE, 
-                EvidenceSource.SEARXNG, 
-                EvidenceSource.BROWSER, 
-                EvidenceSource.OSM, 
+                EvidenceSource.SERPER,
+                EvidenceSource.BRAVE,
+                EvidenceSource.SEARXNG,
+                EvidenceSource.BROWSER,
+                EvidenceSource.OSM,
                 EvidenceSource.GOOGLE_MAPS,
             }
-            
+
             from src.geo.country_matcher import countries_match
             filtered_evidences = []
             for e in chain.evidences:
@@ -307,33 +308,33 @@ Be specific and cite evidence sources."""
                 if e.source == EvidenceSource.USER_HINT:
                     filtered_evidences.append(e)
                     continue
-                    
+
                 # Keep evidence without country info
                 if not e.country:
                     filtered_evidences.append(e)
                     continue
-                
+
                 # Keep NEW web search results unconditionally (they were found with hint context)
                 if e.source in web_sources and e.content_hash in new_evidence_hashes:
                     filtered_evidences.append(e)
                     continue
-                    
+
                 # For ML predictions and OLD web results: only keep if they match the hint
                 if e.source in ml_sources or e.source in web_sources:
                     if countries_match(hint_country, e.country):
                         filtered_evidences.append(e)
                     else:
-                        logger.debug("Filtered {} prediction from {} (hint={})", 
+                        logger.debug("Filtered {} prediction from {} (hint={})",
                                     e.source.value, e.country, hint_country)
                 else:
                     # Keep other evidence types (reasoning, etc.)
                     filtered_evidences.append(e)
-            
+
             # Rebuild chain with filtered evidences
             chain = EvidenceChain()
             for e in filtered_evidences:
                 chain.add(e)
-            
+
             logger.info(
                 "Filtered evidence chain: {} -> {} evidences (hint={}, kept web results)",
                 len(session.pipeline_state.get("evidences", [])),
@@ -349,7 +350,7 @@ Be specific and cite evidence sources."""
         try:
             # Pass the hint to reasoning for strong boosting
             updated = await self._reasoning_agent.reason_multi_candidate(
-                chain, 
+                chain,
                 skip_verification=True,
                 hint=hint_text,  # Pass hint explicitly
             )

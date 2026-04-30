@@ -1,6 +1,5 @@
 """Tests for the model registry."""
 
-import pytest
 
 from src.models.base import GeoModel, ModelCapability, ModelInfo
 from src.models.registry import ModelRegistry

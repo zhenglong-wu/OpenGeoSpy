@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -37,7 +35,7 @@ app.add_typer(improve_app, name="improve")
 @app.command()
 def locate(
     image: str = typer.Argument(..., help="Path to image file"),
-    hint: Optional[str] = typer.Option(None, "--hint", "-h", help="Location hint"),
+    hint: str | None = typer.Option(None, "--hint", "-h", help="Location hint"),
     output: str = typer.Option("table", "--output", "-o", help="Output format: json or table"),
     quality: str = typer.Option("balanced", "--quality", help="Execution quality: fast|balanced|max"),
 ) -> None:
@@ -66,7 +64,7 @@ def batch(
     input_dir: str = typer.Argument(..., help="Directory containing images"),
     output: str = typer.Option("results.jsonl", "--output", "-o", help="Output JSONL path"),
     max_concurrent: int = typer.Option(3, "--max-concurrent", "-c"),
-    labels: Optional[str] = typer.Option(None, "--labels", help="Ground truth CSV"),
+    labels: str | None = typer.Option(None, "--labels", help="Ground truth CSV"),
     quality: str = typer.Option("balanced", "--quality", help="Execution quality: fast|balanced|max"),
 ) -> None:
     """Batch geolocate all images in a directory."""
@@ -123,7 +121,7 @@ def batch(
 def eval_cmd(
     dataset_path: str = typer.Argument(..., help="Path to dataset manifest.json or CSV"),
     label: str = typer.Option("", "--label", "-l", help="Label for this eval run"),
-    baseline: Optional[str] = typer.Option(None, "--baseline", help="Path to baseline report JSON"),
+    baseline: str | None = typer.Option(None, "--baseline", help="Path to baseline report JSON"),
     judge: bool = typer.Option(False, "--judge", help="Run LLM-as-judge scoring"),
     max_concurrent: int = typer.Option(3, "--max-concurrent", "-c"),
 ) -> None:
@@ -172,8 +170,8 @@ def eval_cmd(
 
 @app.command("trace-stats")
 def trace_stats(
-    since: Optional[str] = typer.Option(None, "--since", help="Filter traces since date (YYYY-MM-DD)"),
-    version: Optional[str] = typer.Option(None, "--version", help="Filter by pipeline version"),
+    since: str | None = typer.Option(None, "--since", help="Filter traces since date (YYYY-MM-DD)"),
+    version: str | None = typer.Option(None, "--version", help="Filter by pipeline version"),
 ) -> None:
     """Query trace index for aggregate statistics."""
     from src.tracing.index import TraceIndex
@@ -213,7 +211,7 @@ def trace_stats(
 @app.command()
 def evolve(
     eval_report: str = typer.Argument(..., help="Path to eval report JSON"),
-    config: Optional[str] = typer.Option(None, "--config", help="Path to current scoring config"),
+    config: str | None = typer.Option(None, "--config", help="Path to current scoring config"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show changes without applying"),
 ) -> None:
     """Analyze eval results and suggest/apply scoring weight adjustments."""
@@ -239,11 +237,10 @@ def evolve(
     # For now, we need eval metrics — the report contains the summary
     # In a real pipeline, the runner would save metrics alongside the report
     with open(report_path) as f:
-        report_data = json.load(f)
+        _report_data = json.load(f)
 
     # Create a minimal EvalMetrics from report data
     # (full implementation would load from traces)
-    from src.eval.metrics import EvalMetrics, SampleResult
     metrics = EvalMetrics()  # Will be empty without full sample data
 
     adjustments = tuner.tune(metrics)
@@ -277,14 +274,14 @@ def improve_import_benchmark(
     adapter: str = typer.Option("auto", "--adapter", help="auto|manifest|csv|jsonl|parquet|geobench|osv5m|geovistabench"),
     dataset_id: str = typer.Option("", "--dataset-id", help="Dataset id inside the suite"),
     description: str = typer.Option("", "--description", help="Dataset description"),
-    suite: Optional[str] = typer.Option(None, "--suite", help="Optional benchmark suite manifest to update"),
+    suite: str | None = typer.Option(None, "--suite", help="Optional benchmark suite manifest to update"),
     protected: bool = typer.Option(False, "--protected", help="Mark as protected from regressions"),
     optional: bool = typer.Option(False, "--optional", help="Allow the suite to skip this dataset when its manifest is missing"),
     source_label: str = typer.Option("", "--source-label", help="Human-readable source label stored in suite metadata"),
     limit: int = typer.Option(0, "--limit", help="Optional subset size; 0 imports the full normalized dataset"),
     seed: int = typer.Option(42, "--seed", help="Deterministic seed used for subset sampling"),
-    stratify_by: Optional[str] = typer.Option(None, "--stratify-by", help="Comma-separated sample fields to balance across, e.g. difficulty,country"),
-    tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated dataset tags"),
+    stratify_by: str | None = typer.Option(None, "--stratify-by", help="Comma-separated sample fields to balance across, e.g. difficulty,country"),
+    tags: str | None = typer.Option(None, "--tags", help="Comma-separated dataset tags"),
 ) -> None:
     """Normalize a benchmark dataset and optionally add it to a suite."""
     from src.improve.controller import ImprovementController
@@ -313,7 +310,7 @@ def improve_import_benchmark(
 def improve_import_trace_regressions(
     traces_dir: str = typer.Argument(..., help="Directory containing saved JSONL traces"),
     output_manifest: str = typer.Argument(..., help="Destination manifest path"),
-    suite: Optional[str] = typer.Option(None, "--suite", help="Optional benchmark suite manifest to update"),
+    suite: str | None = typer.Option(None, "--suite", help="Optional benchmark suite manifest to update"),
 ) -> None:
     """Build a regression dataset from saved traces."""
     from src.improve.controller import ImprovementController

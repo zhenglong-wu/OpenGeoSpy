@@ -1,10 +1,12 @@
-import requests
-import sys
-import os
-import traceback
-from typing import List, Dict, Any, Optional
 import asyncio
+import contextlib
 import logging
+import os
+import sys
+import traceback
+from typing import Any
+
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -16,7 +18,7 @@ class GeoLocatorClient:
         self.base_url = base_url
         self.logger = logger
 
-    async def locate_image(self, image_path: str, save: bool = False) -> Dict[str, Any]:
+    async def locate_image(self, image_path: str, save: bool = False) -> dict[str, Any]:
         """
         Locate an image using the API.
 
@@ -57,7 +59,7 @@ class GeoLocatorClient:
             self.logger.debug(f"Full traceback: {traceback.format_exc()}")
             raise
 
-    async def analyze_multimodal(self, files: List[str], save: bool = False) -> Dict[str, Any]:
+    async def analyze_multimodal(self, files: list[str], save: bool = False) -> dict[str, Any]:
         """
         Analyze multiple files using the API.
 
@@ -82,15 +84,13 @@ class GeoLocatorClient:
             file_objs = []
             for f in files:
                 try:
-                    file_objs.append(("files", (os.path.basename(f), open(f, "rb"), self._get_mime_type(f))))
+                    file_objs.append(("files", (os.path.basename(f), open(f, "rb"), self._get_mime_type(f))))  # noqa: SIM115 - handle kept open for multipart upload
                 except Exception as e:
                     self.logger.error(f"Error preparing file {f}: {str(e)}")
                     # Clean up any opened files
                     for obj in file_objs:
-                        try:
+                        with contextlib.suppress(BaseException):
                             obj[1][1].close()
-                        except:
-                            pass
                     raise
 
             self.logger.info(f"Sending multimodal analysis request for {len(files)} files")
@@ -98,10 +98,8 @@ class GeoLocatorClient:
 
             # Clean up files
             for obj in file_objs:
-                try:
+                with contextlib.suppress(BaseException):
                     obj[1][1].close()
-                except:
-                    pass
 
             if response.status_code != 200:
                 self.logger.error(f"API request failed with status {response.status_code}: {response.text}")

@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 import statistics
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import orjson
 from loguru import logger
-
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS traces (

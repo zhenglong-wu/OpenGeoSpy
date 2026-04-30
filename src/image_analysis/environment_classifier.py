@@ -1,8 +1,8 @@
-from typing import Dict, List, Tuple
-import numpy as np
-import cv2
 from dataclasses import dataclass
 from enum import Enum, auto
+
+import cv2
+import numpy as np
 
 
 class EnvironmentType(Enum):
@@ -23,9 +23,9 @@ class EnvironmentType(Enum):
 @dataclass
 class EnvironmentInfo:
     primary_type: EnvironmentType
-    secondary_types: List[EnvironmentType]
+    secondary_types: list[EnvironmentType]
     confidence: float
-    features: Dict[str, float]
+    features: dict[str, float]
 
 
 class EnvironmentClassifier:
@@ -45,7 +45,7 @@ class EnvironmentClassifier:
             EnvironmentType.HIGHWAY: {"road_width": 0.3, "vehicle_density": 0.3, "road_markings": 0.2, "building_density": -0.1},
         }
 
-    def classify_environment(self, image: np.ndarray, features: Dict) -> EnvironmentInfo:
+    def classify_environment(self, image: np.ndarray, features: dict) -> EnvironmentInfo:
         """Classify the environment type based on image analysis and extracted features"""
         # Extract environment-specific features
         env_features = self._extract_environment_features(image, features)
@@ -66,7 +66,7 @@ class EnvironmentClassifier:
 
         return EnvironmentInfo(primary_type=primary_type, secondary_types=secondary_types, confidence=sorted_types[0][1], features=env_features)
 
-    def _extract_environment_features(self, image: np.ndarray, features: Dict) -> Dict[str, float]:
+    def _extract_environment_features(self, image: np.ndarray, features: dict) -> dict[str, float]:
         """Extract normalized feature scores for environment classification"""
         env_features = {}
 
@@ -182,7 +182,7 @@ class EnvironmentClassifier:
 
         return min(1.0, large_structures * 0.3)
 
-    def _analyze_natural_features(self, image: np.ndarray, terrain_types: List[str]) -> float:
+    def _analyze_natural_features(self, image: np.ndarray, terrain_types: list[str]) -> float:
         """Analyze presence of natural features"""
         # Combine terrain analysis with color-based natural feature detection
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)

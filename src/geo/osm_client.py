@@ -7,7 +7,7 @@ adaptive radius logic and multi-source search patterns.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import overpy
 from loguru import logger
@@ -22,7 +22,7 @@ from src.utils.geo_math import bounding_box, haversine_distance
 class OSMClient:
     """OpenStreetMap Overpass API client for POI and place search."""
 
-    def __init__(self, cache: Optional[CacheStore] = None):
+    def __init__(self, cache: CacheStore | None = None):
         self._api = overpy.Overpass()
         self._cache = cache
 
@@ -156,10 +156,10 @@ class OSMClient:
                 result=r,
                 distance_km=r.get("distance_km"),
             )
-            
+
             # Use safe coordinate extraction
             lat, lon = safe_coords(r.get("lat"), r.get("lon"))
-            
+
             evidences.append(
                 Evidence(
                     source=EvidenceSource.OSM,

@@ -5,7 +5,7 @@ Provides unified reverse geocoding from multiple sources.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 

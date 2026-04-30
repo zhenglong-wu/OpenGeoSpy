@@ -579,7 +579,7 @@ async def reasoning_node(
     try:
         evidence_chain = _build_chain_from_state(state)
         features = state.get("features", {})
-        
+
         # Get location hint and optionally filter evidence
         location_hint = state.get("location_hint")
         if location_hint:

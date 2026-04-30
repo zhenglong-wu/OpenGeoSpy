@@ -7,20 +7,19 @@ and detects hallucinations.
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from loguru import logger
 
-from src.config.llm import LLMCallType, get_llm_params
-from src.evidence.chain import Evidence, EvidenceChain
+from src.evidence.chain import EvidenceChain
 from src.scoring.scorer import GeoScorer
 from src.utils.retry import execute_with_retry
 
 
-class VerificationStatus(str, Enum):
+class VerificationStatus(StrEnum):
     VERIFIED = "verified"
     CONTRADICTED = "contradicted"
     UNSUPPORTED = "unsupported"
@@ -270,10 +269,8 @@ CONFIDENCE: [0.0-1.0]
                 if val.lower() != "none":
                     current_claim.contradicting_evidence = [s.strip() for s in val.split(",")]
             elif line.startswith("CONFIDENCE:") and current_claim:
-                try:
+                with contextlib.suppress(ValueError):
                     current_claim.confidence = float(line.split(":", 1)[1].strip())
-                except ValueError:
-                    pass
 
         if current_claim:
             results.append(current_claim)
@@ -312,10 +309,7 @@ CONFIDENCE: [0.0-1.0]
         total = len(claims)
 
         # Weighted confidence from claims
-        if total > 0:
-            avg_claim_confidence = sum(c.confidence for c in claims) / total
-        else:
-            avg_claim_confidence = 0.0
+        avg_claim_confidence = sum(c.confidence for c in claims) / total if total > 0 else 0.0
 
         # Determine overall verification
         if contradicted_count > total / 2:

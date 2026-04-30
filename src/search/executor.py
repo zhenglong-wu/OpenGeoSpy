@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Optional
 
 from loguru import logger
 
@@ -21,7 +20,7 @@ from src.search.graph import QueryIntent, SearchGraph, SearchNode, SearchNodeSta
 class SearchGraphExecutor:
     """Execute search graph nodes against external providers."""
 
-    def __init__(self, settings: Settings, cache: Optional[CacheStore] = None):
+    def __init__(self, settings: Settings, cache: CacheStore | None = None):
         self.settings = settings
         self._cache = cache
         self._serper = None

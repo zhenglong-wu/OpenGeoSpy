@@ -1,9 +1,10 @@
-from typing import Dict, List, Optional
-from browser_use import Agent
-import google.generativeai as genai
-from config import CONFIG
-from langchain_google_genai import ChatGoogleGenerativeAI
 import re
+
+import google.generativeai as genai
+from browser_use import Agent
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from config import CONFIG
 
 
 class BrowserSearchAdapter:
@@ -11,7 +12,7 @@ class BrowserSearchAdapter:
         genai.configure(api_key=CONFIG.GEMINI_API_KEY)
         self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=CONFIG.GEMINI_API_KEY, temperature=0.7)
 
-    async def search_locations(self, query: str, max_results: int = 5) -> List[Dict]:
+    async def search_locations(self, query: str, max_results: int = 5) -> list[dict]:
         """
         Search for locations using browser-use with Gemini
         """
@@ -39,7 +40,7 @@ class BrowserSearchAdapter:
             print(f"Browser search error: {e}")
             return []
 
-    def _parse_location_from_text(self, text: str) -> Optional[Dict]:
+    def _parse_location_from_text(self, text: str) -> dict | None:
         """Parse location data from agent's text response"""
         try:
             # for error mitigation, probably a bad idea

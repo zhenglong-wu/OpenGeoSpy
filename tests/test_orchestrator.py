@@ -55,21 +55,22 @@ async def test_orchestrator_locate(test_settings, mock_image_path):
     }
 
     with (
-        patch("src.agents.nodes.FeatureExtractionAgent") as MockFE,
-        patch("src.agents.nodes.MLEnsembleAgent") as MockML,
-        patch("src.agents.nodes.WebIntelAgent") as MockWI,
-        patch("src.agents.nodes.CandidateVerificationAgent") as MockCV,
-        patch("src.agents.nodes.ReasoningAgent") as MockRA,
+        patch("src.agents.feature_agent.FeatureExtractionAgent") as MockFE,
+        patch("src.agents.ml_ensemble_agent.MLEnsembleAgent") as MockML,
+        patch("src.agents.web_intel_agent.WebIntelAgent") as MockWI,
+        patch("src.agents.candidate_verification_agent.CandidateVerificationAgent") as MockCV,
+        patch("src.agents.reasoning_agent.ReasoningAgent") as MockRA,
     ):
         MockFE.return_value.extract_with_raw = AsyncMock(
             return_value=(feature_chain, {}, {"landmarks": ["tower"]}, {})
         )
         MockML.return_value.predict = AsyncMock(return_value=ml_chain)
-        MockWI.return_value.search = AsyncMock(return_value=web_chain)
+        MockWI.return_value.search = AsyncMock(return_value=(web_chain, {}))
         MockWI.return_value.close = AsyncMock()
         MockCV.return_value.verify_candidates = AsyncMock(return_value=verify_chain)
         MockCV.return_value.close = AsyncMock()
         MockRA.return_value.reason = AsyncMock(return_value=prediction)
+        MockRA.return_value.reason_multi_candidate = AsyncMock(return_value=[prediction])
 
         from src.agents.orchestrator import GeoLocatorOrchestrator
         orch = GeoLocatorOrchestrator(test_settings)

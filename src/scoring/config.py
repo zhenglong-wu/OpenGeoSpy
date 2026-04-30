@@ -12,7 +12,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Sub-models
 # ---------------------------------------------------------------------------
@@ -32,7 +31,7 @@ class GeoAgreementThresholds(BaseModel):
     no_evidence_score: float = 0.0
 
     @model_validator(mode="after")
-    def _validate_thresholds(self) -> "GeoAgreementThresholds":
+    def _validate_thresholds(self) -> GeoAgreementThresholds:
         if self.tight_km >= self.good_km:
             raise ValueError(f"tight_km ({self.tight_km}) must be < good_km ({self.good_km})")
         if self.good_km >= self.weak_km:

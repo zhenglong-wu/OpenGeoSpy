@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from loguru import logger
 
@@ -156,12 +155,12 @@ class WeightTuner:
         # Save versioned history
         history_dir = out / "history"
         history_dir.mkdir(parents=True, exist_ok=True)
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        date_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         history_path = history_dir / f"weights_{date_str}.json"
         history_data = {
             "config": new_config.model_dump(),
             "adjustments": [a.to_dict() for a in adjustments],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         with open(history_path, "w") as f:
             json.dump(history_data, f, indent=2)

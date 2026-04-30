@@ -1,10 +1,9 @@
-from PIL import Image
-import torch
-from typing import Dict, Tuple
+import sys
+
 import numpy as np
 import reverse_geocoder as rg
-import sys
-import os
+import torch
+from PIL import Image
 
 
 class OSV5MPredictor:
@@ -25,7 +24,7 @@ class OSV5MPredictor:
             print(f"! Error initializing OSV5M model: {e}")
             self.model = None
 
-    def predict(self, image: Image.Image) -> Tuple[Dict, float]:
+    def predict(self, image: Image.Image) -> tuple[dict, float]:
         """
         Predict location from image using OSV-5M model
         Returns (location_dict, confidence)

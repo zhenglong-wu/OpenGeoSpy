@@ -1,9 +1,9 @@
-from typing import Dict, List, Optional
 
 # TODO: requests is currently unused
 # import requests
 from openai import OpenAI
-from src.image_analysis.environment_classifier import EnvironmentType, EnvironmentInfo
+
+from src.image_analysis.environment_classifier import EnvironmentType
 from src.utils.retry import retry_llm
 
 
@@ -25,7 +25,7 @@ class LocationResolver:
             EnvironmentType.HIGHWAY.name: {"street_signs": 0.9, "landmarks": 0.8, "business_names": 0.7, "license_plates": 0.6, "building_info": 0.5},
         }
 
-    def resolve_location(self, features: Dict, candidates: List[Dict], description: str, metadata: Dict = None, osv5m_prediction: Dict = None) -> Dict:
+    def resolve_location(self, features: dict, candidates: list[dict], description: str, metadata: dict = None, osv5m_prediction: dict = None) -> dict:
         """Enhanced location resolution considering environment type and location hints"""
         # Extract location hint from metadata or features
         location_hint = metadata.get("location_hint") if metadata else None
@@ -67,27 +67,26 @@ class LocationResolver:
         # If we have a location hint, ensure the final location is specific enough
         if location_hint and initial_location:
             location_parts = location_hint.split(",")
-            if len(location_parts) > 1:  # We have a city or more specific hint
-                if "country" in initial_location.get("type", "").lower():
-                    # Try to find a more specific candidate within the hinted region
-                    closest_valid = self._find_closest_valid_candidate(candidates, location_hint)
-                    if closest_valid:
-                        initial_location = closest_valid
-                        # Boost confidence if we found a match within the hinted region
-                        initial_location["confidence"] = min(1.0, initial_location["confidence"] * 1.3)
+            if len(location_parts) > 1 and "country" in initial_location.get("type", "").lower():
+                # Try to find a more specific candidate within the hinted region
+                closest_valid = self._find_closest_valid_candidate(candidates, location_hint)
+                if closest_valid:
+                    initial_location = closest_valid
+                    # Boost confidence if we found a match within the hinted region
+                    initial_location["confidence"] = min(1.0, initial_location["confidence"] * 1.3)
 
         return initial_location
 
     # NOTE: Old pipeline — not called from async graph nodes.
     # Sync retry uses time.sleep(); safe only because this code path is dormant.
     @retry_llm(max_attempts=2)
-    def _initial_resolution(self, features: Dict, candidates: List[Dict], description: str, location_hint: str = None) -> Dict:
+    def _initial_resolution(self, features: dict, candidates: list[dict], description: str, location_hint: str = None) -> dict:
         """Initial location resolution using all available information"""
         prompt = self._build_reasoning_prompt(features, candidates, description, location_hint)
         completion = self.client.chat.completions.create(model="google/gemini-2.0-flash-001", messages=[{"role": "user", "content": prompt}])
         return self._parse_llm_response(completion.choices[0].message.content, candidates)
 
-    def _refine_with_business_verification(self, location: Dict, features: Dict) -> Optional[Dict]:
+    def _refine_with_business_verification(self, location: dict, features: dict) -> dict | None:
         """Refine location using business and landmark verification"""
         businesses = features.get("extracted_text", {}).get("business_names", [])
         landmarks = features.get("landmarks", [])
@@ -99,18 +98,18 @@ class LocationResolver:
         verification_prompt = f"""
         Given a potential location at {location['name']} ({location['lat']}, {location['lon']}),
         verify and refine this location using the following information:
-        
+
         Businesses: {', '.join(businesses)}
         Landmarks: {', '.join(landmarks)}
         License Plates: {', '.join(license_plates)}
-        
+
         Environmental Context:
         - Terrain: {', '.join(features.get('terrain_type', []))}
         - Water Bodies: {', '.join(features.get('water_bodies', []))}
         - Building Density: {features.get('building_density', 'unknown')}
         - Road Types: {', '.join(features.get('road_types', []))}
         - Vegetation: {features.get('vegetation_density', 'unknown')}
-        
+
         Tasks:
         1. Verify if the environmental features match the proposed location
         2. Check if license plates match the region's format
@@ -118,7 +117,7 @@ class LocationResolver:
         4. Verify if they exist in the expected location
         5. If found, provide their exact coordinates
         6. Calculate confidence based on all matches
-        
+
         Return your response in this format:
         Location: [refined name with street/area]
         Coordinates: [lat], [lon]
@@ -131,7 +130,7 @@ class LocationResolver:
         refined = self._parse_llm_response(completion.choices[0].message.content, [location])
         return refined if refined["confidence"] > location["confidence"] else None
 
-    def _refine_with_street_details(self, location: Dict, features: Dict) -> Optional[Dict]:
+    def _refine_with_street_details(self, location: dict, features: dict) -> dict | None:
         """Refine location using street-level details"""
         street_signs = features.get("extracted_text", {}).get("street_signs", [])
         building_info = features.get("extracted_text", {}).get("building_info", [])
@@ -142,16 +141,16 @@ class LocationResolver:
         street_prompt = f"""
         Given a location at {location['name']} ({location['lat']}, {location['lon']}),
         refine it using these street-level details:
-        
+
         Street Signs: {', '.join(street_signs)}
         Building Info: {', '.join(building_info)}
-        
+
         Tasks:
         1. Search for these street names and building numbers in the area
         2. Cross-reference with the existing location
         3. Provide the most precise coordinates possible
         4. Update confidence based on match accuracy
-        
+
         Return your response in this format:
         Location: [precise address or intersection]
         Coordinates: [lat], [lon]
@@ -164,7 +163,7 @@ class LocationResolver:
         refined = self._parse_llm_response(completion.choices[0].message.content, [location])
         return refined if refined["confidence"] > location["confidence"] else None
 
-    def _refine_with_environment_specific_evidence(self, location: Dict, features: Dict, env_type: str, env_confidence: float) -> Optional[Dict]:
+    def _refine_with_environment_specific_evidence(self, location: dict, features: dict, env_type: str, env_confidence: float) -> dict | None:
         """Refine location using environment-specific evidence weights"""
         # Get evidence weights for this environment type
         weights = self.evidence_weights.get(env_type, self.evidence_weights.get("UNKNOWN", {}))
@@ -212,7 +211,7 @@ class LocationResolver:
 
         return None
 
-    def _build_reasoning_prompt(self, features: Dict, candidates: List[Dict], description: str, location_hint: str = None) -> str:
+    def _build_reasoning_prompt(self, features: dict, candidates: list[dict], description: str, location_hint: str = None) -> str:
         """Build prompt for the LLM with improved entity information"""
         candidates_text = self._format_candidates(candidates)
         location_context = ""
@@ -271,7 +270,7 @@ class LocationResolver:
         IMPORTANT: Your goal is to identify the most precise location possible - prefer specific neighborhoods or districts over general city names, and cities over countries.
 
         Image Description: {description}
-        
+
         Environmental Features:
         - Terrain Type: {', '.join(env_features['terrain']) if env_features['terrain'] else 'Unknown'}
         - Water Bodies: {', '.join(env_features['water']) if env_features['water'] else 'None detected'}
@@ -279,29 +278,29 @@ class LocationResolver:
         - Building Density: {env_features['buildings']}
         - Road Types: {', '.join(env_features['roads']) if env_features['roads'] else 'Unknown'}
         - Vegetation Density: {env_features['vegetation']}
-        
+
         License Plate Analysis:
         {chr(10).join(plate_details) if plate_details else 'No license plates detected'}
-        
+
         Business Information:
         {chr(10).join([f"- {business}" for business in business_details]) if business_details else 'No businesses detected'}
-        
+
         Street Information:
         {chr(10).join([f"- {street}" for street in street_details]) if street_details else 'No streets detected'}
-        
+
         Building Information:
         {chr(10).join([f"- {building}" for building in features.get('extracted_text', {}).get('building_info', [])]) if features.get('extracted_text', {}).get('building_info', []) else 'No building info detected'}
         {entity_location_text}
-        
+
         Other Features:
         - Landmarks: {', '.join(features['landmarks']) if features.get('landmarks') else 'None detected'}
         - Architecture: {features.get('architecture_style') or 'Unknown'}
         - Time of Day: {features.get('time_of_day') or 'Unknown'}
         - Weather: {features.get('weather') or 'Unknown'}
-        
+
         Potential Locations:
         {candidates_text}
-        
+
         Analysis Instructions:
         1. If a location hint is provided, test it against concrete clues first
         2. Prefer districts or neighborhoods when clues support that level of precision
@@ -309,9 +308,9 @@ class LocationResolver:
         4. Check if business names and street signs match the expected language/style
         5. Verify if environmental features match the local geography
         6. Consider building density and road types for area classification
-        
+
         Do not force a high confidence from the hint alone; confidence should match real corroboration.
-        
+
         Return your response in this format:
         Location: [most specific name - include city AND district/neighborhood if possible]
         Coordinates: [lat], [lon]
@@ -319,7 +318,7 @@ class LocationResolver:
         Reasoning: [detailed explanation prioritizing specific location indicators]
         """
 
-    def _format_candidates(self, candidates: List[Dict]) -> str:
+    def _format_candidates(self, candidates: list[dict]) -> str:
         """Format location candidates for the prompt"""
         if not candidates:
             return "No location candidates found."
@@ -332,7 +331,7 @@ class LocationResolver:
 
         return "\n".join(formatted)
 
-    def _parse_llm_response(self, response: str, candidates: List[Dict]) -> Dict:
+    def _parse_llm_response(self, response: str, candidates: list[dict]) -> dict:
         """Parse LLM response into structured location data"""
         # Default to the highest confidence candidate if parsing fails
         fallback = max(candidates, key=lambda x: x.get("confidence", 0)) if candidates else {"name": "Unknown", "lat": 0.0, "lon": 0.0, "confidence": 0.0}
@@ -355,13 +354,13 @@ class LocationResolver:
                             lat, lon = map(float, value.replace(" ", "").split(","))
                             result["lat"] = lat
                             result["lon"] = lon
-                        except:
+                        except Exception:
                             result["lat"] = fallback["lat"]
                             result["lon"] = fallback["lon"]
                     elif key == "confidence":
                         try:
                             result["confidence"] = float(value)
-                        except:
+                        except Exception:
                             result["confidence"] = fallback["confidence"]
                     elif key == "reasoning":
                         result["reasoning"] = value
@@ -377,7 +376,7 @@ class LocationResolver:
             print(f"Error parsing LLM response: {e}")
             return fallback
 
-    def _merge_predictions(self, vlm_pred: Dict, osv5m_pred: Dict) -> Dict:
+    def _merge_predictions(self, vlm_pred: dict, osv5m_pred: dict) -> dict:
         """Merge predictions from different models"""
         # If VLM is very confident, keep it
         if vlm_pred.get("confidence", 0) > 0.85:
@@ -397,7 +396,7 @@ class LocationResolver:
             "type": "merged_prediction",
         }
 
-    def _is_within_region(self, location: Dict, region_hint: str) -> Optional[bool]:
+    def _is_within_region(self, location: dict, region_hint: str) -> bool | None:
         """Check if a location is within the hinted region.
 
         Returns True/False when the model answers; None when the check fails (caller skips adjustment).
@@ -413,13 +412,13 @@ class LocationResolver:
                     Given these two locations, determine if the first is STRICTLY within the second:
                     Location 1: {location['name']} ({location['lat']}, {location['lon']})
                     Location 2: {region_hint}
-                    
+
                     Consider:
                     1. If region_hint is a city, check if location is STRICTLY within that city's boundaries
                     2. If region_hint is a state/province, check if location is STRICTLY within that state
                     3. If region_hint is a country, check if location is STRICTLY within that country
                     4. If uncertain, return 'false'
-                    
+
                     Return ONLY 'true' or 'false'
                     """,
                     }
@@ -436,7 +435,7 @@ class LocationResolver:
             print(f"Error checking region containment: {e}")
             return None
 
-    def _find_closest_valid_candidate(self, candidates: List[Dict], region_hint: str) -> Optional[Dict]:
+    def _find_closest_valid_candidate(self, candidates: list[dict], region_hint: str) -> dict | None:
         """Find the highest-confidence candidate confirmed within the hinted region."""
         valid_candidates = []
         for candidate in candidates:

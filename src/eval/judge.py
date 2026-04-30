@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from loguru import logger
 from openai import AsyncOpenAI

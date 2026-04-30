@@ -7,9 +7,8 @@ predictor, and is auto-registered via ``@ModelRegistry.register``.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
-from loguru import logger
 from openai import AsyncOpenAI
 
 from src.config.settings import Settings
@@ -43,7 +42,7 @@ class GeoCLIPAdapter(GeoModel):
             self._predictor = GeoCLIPPredictor(device=self._device)
 
     async def predict(
-        self, image_path: str, context: Optional[dict[str, Any]] = None
+        self, image_path: str, context: dict[str, Any] | None = None
     ) -> list[dict]:
         self._ensure_loaded()
         return await asyncio.to_thread(self._predictor.predict, image_path, 5)
@@ -81,7 +80,7 @@ class StreetCLIPAdapter(GeoModel):
             self._predictor = StreetCLIPPredictor(device=self._device)
 
     async def predict(
-        self, image_path: str, context: Optional[dict[str, Any]] = None
+        self, image_path: str, context: dict[str, Any] | None = None
     ) -> list[dict]:
         self._ensure_loaded()
         country_results = await asyncio.to_thread(self._predictor.predict_country, image_path, 5)
@@ -148,7 +147,7 @@ class VLMGeoAdapter(GeoModel):
             )
 
     async def predict(
-        self, image_path: str, context: Optional[dict[str, Any]] = None
+        self, image_path: str, context: dict[str, Any] | None = None
     ) -> list[dict]:
         # Use instrumented client from context if available
         client = (context or {}).get("_instrumented_client")

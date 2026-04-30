@@ -5,9 +5,9 @@ pattern system that can be extended without code changes.
 """
 
 from src.patterns.config import (
-    PatternRegistry,
-    PatternCategory,
     IntentPattern,
+    PatternCategory,
+    PatternRegistry,
     classify_intent,
     classify_text,
     extract_location_hint,

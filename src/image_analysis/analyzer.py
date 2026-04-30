@@ -1,14 +1,14 @@
-from typing import Dict, List, Tuple, Optional
-from PIL import Image
-import numpy as np
-import cv2
-from openai import OpenAI
 import base64
-import requests
 import io
-from math import ceil
 import re
-from .environment_classifier import EnvironmentClassifier, EnvironmentType, EnvironmentInfo
+
+import cv2
+import numpy as np
+import requests
+from openai import OpenAI
+from PIL import Image
+
+from .environment_classifier import EnvironmentClassifier, EnvironmentInfo, EnvironmentType
 
 
 class ImageAnalyzer:
@@ -19,7 +19,7 @@ class ImageAnalyzer:
         self.overlap = 100  # Overlap between chunks in pixels
         self.environment_classifier = EnvironmentClassifier()
 
-    def analyze_image(self, image_path: str) -> Tuple[Dict, str]:
+    def analyze_image(self, image_path: str) -> tuple[dict, str]:
         """Analyze image with enhanced text and visual understanding"""
         # Load and prepare image
         if image_path.startswith(("http://", "https://")):
@@ -35,7 +35,7 @@ class ImageAnalyzer:
 
         # Extract text from each chunk
         all_text = []
-        for i, (chunk, coords) in enumerate(chunks):
+        for _i, (chunk, coords) in enumerate(chunks):
             chunk_text = self._extract_text_from_chunk(chunk, image, coords)
             if chunk_text:
                 all_text.append(chunk_text)
@@ -76,7 +76,7 @@ class ImageAnalyzer:
 
         return features, f"{combined_text}\n\n{location_analysis}"
 
-    def _create_image_chunks(self, image: np.ndarray) -> List[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
+    def _create_image_chunks(self, image: np.ndarray) -> list[tuple[np.ndarray, tuple[int, int, int, int]]]:
         """Create overlapping chunks of the image"""
         height, width = image.shape[:2]
         chunks = []
@@ -96,7 +96,7 @@ class ImageAnalyzer:
 
         return chunks
 
-    def _extract_text_from_chunk(self, chunk: np.ndarray, full_image: Image, coords: Tuple[int, int, int, int]) -> str:
+    def _extract_text_from_chunk(self, chunk: np.ndarray, full_image: Image, coords: tuple[int, int, int, int]) -> str:
         """Extract text from an image chunk using Qwen-VL"""
         try:
             # Convert chunk to base64
@@ -148,7 +148,7 @@ class ImageAnalyzer:
             print(f"Error processing chunk at {coords}: {e}")
             return ""
 
-    def _combine_chunk_results(self, chunk_results: List[str]) -> str:
+    def _combine_chunk_results(self, chunk_results: list[str]) -> str:
         """Combine and deduplicate text findings from chunks"""
         text_findings = {"STREET_SIGNS": set(), "BUILDING_INFO": set(), "BUSINESS_NAMES": set(), "INFORMATIONAL": set(), "OTHER_TEXT": set()}
 
@@ -183,7 +183,7 @@ class ImageAnalyzer:
 
         return result
 
-    def _parse_text_line(self, line: str) -> Tuple[str, float]:
+    def _parse_text_line(self, line: str) -> tuple[str, float]:
         """Parse a line of text with confidence score"""
         try:
             if "confidence:" in line.lower():
@@ -191,10 +191,10 @@ class ImageAnalyzer:
                 confidence = float(line.split("confidence:")[1].strip().strip("()"))
                 return text, confidence
             return line, 0.0
-        except:
+        except Exception:
             return "", 0.0
 
-    def _analyze_location_features(self, image: Image, text_features: Dict, env_info: EnvironmentInfo) -> str:
+    def _analyze_location_features(self, image: Image, text_features: dict, env_info: EnvironmentInfo) -> str:
         """Analyze location features using the full image"""
         # Convert image for API
         buffered = io.BytesIO()
@@ -206,16 +206,16 @@ class ImageAnalyzer:
         location_prompt = f"""
         Analyze this image and extract all relevant location information.
         IMPORTANT: Focus on finding the MOST SPECIFIC location possible - prefer city/district level over country level.
-        
+
         Environment Type: {env_info.primary_type.name} (confidence: {env_info.confidence:.2f})
         Secondary Environments: {', '.join(t.name for t in env_info.secondary_types)}
-        
+
         Previously extracted text:
         {text_features}
-        
+
         License Plates Found:
         {', '.join(text_features.get('license_plates', []))}
-        
+
         Please identify with high precision, considering the environment type:
         1. {self._get_priority_instructions(env_info.primary_type)}
         2. Specific neighborhood or area within the city
@@ -227,13 +227,13 @@ class ImageAnalyzer:
         8. Vegetation types
         9. Any additional location clues from the text
         10. Traffic signs and road markings style
-        
+
         For each identified feature:
         - Rate your confidence (0-1)
         - Explain your reasoning
         - Start with the most specific location indicator
         - Only fall back to broader regions if specific location cannot be determined
-        
+
         Consider the environment type when weighing evidence:
         {self._get_environment_specific_guidance(env_info.primary_type)}
         """
@@ -342,7 +342,7 @@ class ImageAnalyzer:
         }
         return guidance.get(env_type, guidance[EnvironmentType.UNKNOWN])
 
-    def _parse_text_analysis(self, text_analysis: str) -> Dict[str, List[str]]:
+    def _parse_text_analysis(self, text_analysis: str) -> dict[str, list[str]]:
         """Parse the text extraction response into structured data with improved entity categorization"""
         features = {
             "street_signs": [],
@@ -465,7 +465,7 @@ class ImageAnalyzer:
         # Default to other
         return "other"
 
-    def _is_license_plate(self, text: str) -> Tuple[bool, Optional[Dict[str, str]]]:
+    def _is_license_plate(self, text: str) -> tuple[bool, dict[str, str] | None]:
         """Detect if text matches common license plate patterns and extract region info"""
         import re
 
@@ -609,7 +609,7 @@ class ImageAnalyzer:
 
         return False, None
 
-    def _parse_analysis(self, analysis: str, text_features: Dict[str, List[str]]) -> Dict:
+    def _parse_analysis(self, analysis: str, text_features: dict[str, list[str]]) -> dict:
         """Parse the location analysis into structured features"""
         features = {
             "landmarks": [],
@@ -630,7 +630,6 @@ class ImageAnalyzer:
         }
 
         # Parse the analysis text to populate features
-        current_section = None
         for line in analysis.split("\n"):
             line = line.strip()
             if not line:
@@ -643,7 +642,7 @@ class ImageAnalyzer:
                     feature = feature.strip().lower()
                     score = float(score.strip().split()[0])
                     features["confidence_scores"][feature] = score
-                except:
+                except Exception:
                     continue
 
             # Extract features based on context
@@ -660,7 +659,7 @@ class ImageAnalyzer:
 
         return features
 
-    def _analyze_shadows(self, cv_image: np.ndarray) -> Dict[str, float]:
+    def _analyze_shadows(self, cv_image: np.ndarray) -> dict[str, float]:
         """Analyze shadows to estimate time of day"""
         try:
             # Convert to grayscale
@@ -723,7 +722,7 @@ class ImageAnalyzer:
             print(f"Error analyzing shadows: {e}")
             return {"time_confidence": 0.0, "estimated_hour": None}
 
-    def _estimate_time_of_day(self, cv_image: np.ndarray, metadata: Dict) -> Dict:
+    def _estimate_time_of_day(self, cv_image: np.ndarray, metadata: dict) -> dict:
         """Estimate time of day using multiple methods"""
         # Get shadow-based estimate
         shadow_estimate = self._analyze_shadows(cv_image)
@@ -767,7 +766,7 @@ class ImageAnalyzer:
 
         return result
 
-    def _analyze_environment(self, cv_image: np.ndarray) -> Dict:
+    def _analyze_environment(self, cv_image: np.ndarray) -> dict:
         """Analyze environmental features in the image"""
         features = {
             "terrain_type": [],
@@ -805,7 +804,7 @@ class ImageAnalyzer:
 
         return features
 
-    def _analyze_terrain(self, image: np.ndarray) -> List[str]:
+    def _analyze_terrain(self, image: np.ndarray) -> list[str]:
         """Analyze terrain types using color and texture analysis"""
         # Convert to HSV for better color segmentation
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -826,7 +825,7 @@ class ImageAnalyzer:
 
         return terrain_types
 
-    def _detect_water_bodies(self, image: np.ndarray) -> List[str]:
+    def _detect_water_bodies(self, image: np.ndarray) -> list[str]:
         """Detect presence of water bodies"""
         # Convert to HSV for water detection
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -848,7 +847,7 @@ class ImageAnalyzer:
 
         return water_types
 
-    def _analyze_sky(self, image: np.ndarray) -> List[str]:
+    def _analyze_sky(self, image: np.ndarray) -> list[str]:
         """Analyze sky features"""
         # Convert to HSV
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -894,7 +893,7 @@ class ImageAnalyzer:
         else:
             return "low_density"
 
-    def _detect_road_types(self, image: np.ndarray) -> List[str]:
+    def _detect_road_types(self, image: np.ndarray) -> list[str]:
         """Detect types of roads present"""
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -936,7 +935,7 @@ class ImageAnalyzer:
         else:
             return "low"
 
-    def analyze_video(self, video_path: str) -> Tuple[Dict, str]:
+    def analyze_video(self, video_path: str) -> tuple[dict, str]:
         """Analyze video for text and location features"""
         try:
             cap = cv2.VideoCapture(video_path)
@@ -1024,7 +1023,7 @@ class ImageAnalyzer:
             3. Environmental conditions
             4. Any text or signs visible
             5. Notable location indicators
-            
+
             Be concise but specific.
             """
 
@@ -1040,7 +1039,7 @@ class ImageAnalyzer:
             print(f"Error analyzing scene: {e}")
             return ""
 
-    def _extract_text_from_frame(self, frame: np.ndarray, timestamp: float) -> Dict:
+    def _extract_text_from_frame(self, frame: np.ndarray, timestamp: float) -> dict:
         """Extract text from a video frame with improved chunking"""
         height, width = frame.shape[:2]
 
@@ -1065,7 +1064,7 @@ class ImageAnalyzer:
 
         return {"timestamp": timestamp, "text": self._combine_chunk_results(chunk_results)}
 
-    def _combine_video_findings(self, findings: List[Dict]) -> Dict:
+    def _combine_video_findings(self, findings: list[dict]) -> dict:
         """Combine and track text findings across video frames"""
         text_tracks = {"STREET_SIGNS": {}, "BUILDING_INFO": {}, "BUSINESS_NAMES": {}, "INFORMATIONAL": {}, "OTHER_TEXT": {}}
 
@@ -1094,7 +1093,7 @@ class ImageAnalyzer:
 
         return combined
 
-    def _summarize_scenes(self, scenes: List[Dict]) -> str:
+    def _summarize_scenes(self, scenes: list[dict]) -> str:
         """Generate a temporal summary of video scenes"""
         summary = "Video Scene Analysis:\n\n"
 

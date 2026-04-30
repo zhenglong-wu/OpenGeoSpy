@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -139,7 +139,7 @@ async def run_suite(
         "run_dir": str(output_dir),
         "label": label or suite.name,
         "quality": quality,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "git": {
             "sha": _git_value(["git", "rev-parse", "HEAD"], Path.cwd()),
             "branch": _git_value(["git", "branch", "--show-current"], Path.cwd()),

@@ -8,16 +8,15 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from loguru import logger
 
-from src.utils.geo_math import haversine_distance, validate_coordinates, weighted_centroid
+from src.utils.geo_math import validate_coordinates, weighted_centroid
 
 
-class EvidenceSource(str, Enum):
+class EvidenceSource(StrEnum):
     EXIF = "exif"
     VLM_ANALYSIS = "vlm_analysis"
     VLM_GEO = "vlm_geo"
@@ -45,13 +44,13 @@ class Evidence:
     source: EvidenceSource
     content: str
     confidence: float  # 0-1, derived from source reliability
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    country: Optional[str] = None
-    region: Optional[str] = None
-    city: Optional[str] = None
-    url: Optional[str] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    latitude: float | None = None
+    longitude: float | None = None
+    country: str | None = None
+    region: str | None = None
+    city: str | None = None
+    url: str | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     content_hash: str = ""
     metadata: dict = field(default_factory=dict)
     provenance: list[str] = field(default_factory=list)  # Agent/step path
@@ -65,10 +64,13 @@ class Evidence:
             ).hexdigest()[:16]
 
         # Validate coordinates if provided
-        if self.latitude is not None and self.longitude is not None:
-            if not validate_coordinates(self.latitude, self.longitude):
-                self.latitude = None
-                self.longitude = None
+        if (
+            self.latitude is not None
+            and self.longitude is not None
+            and not validate_coordinates(self.latitude, self.longitude)
+        ):
+            self.latitude = None
+            self.longitude = None
 
         self.confidence = max(0.0, min(1.0, self.confidence))
 
@@ -136,7 +138,7 @@ class EvidenceChain:
         """All country predictions from evidence."""
         return [e.country for e in self.evidences if e.country]
 
-    def location_cluster(self) -> Optional[tuple[float, float]]:
+    def location_cluster(self) -> tuple[float, float] | None:
         """Weighted centroid of all coordinate evidence."""
         points = [
             (e.latitude, e.longitude, e.confidence)
@@ -159,15 +161,15 @@ class EvidenceChain:
                 return 0.3 if geo else 0.0
 
         # P2.5: Temporal weighting - newer evidence gets higher weight
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         max_age_seconds = 3600  # 1 hour max age for weighting
-        
+
         weighted_coords = []
         for e in geo:
             age_seconds = (now - e.timestamp).total_seconds()
             recency_weight = max(0.5, 1.0 - (age_seconds / max_age_seconds) * 0.5)
             weighted_coords.append((e.latitude, e.longitude, e.confidence * recency_weight))
-        
+
         from src.utils.geo_math import geographic_spread
         spread = geographic_spread([(c[0], c[1]) for c in weighted_coords])
 
@@ -209,10 +211,10 @@ class EvidenceChain:
         """Get average confidence weighted by recency (P2.5)."""
         if not self.evidences:
             return 0.0
-        
-        now = datetime.now(timezone.utc)
+
+        now = datetime.now(UTC)
         max_age_seconds = 3600
-        
+
         weighted_sum = 0.0
         weight_sum = 0.0
         for e in self.evidences:
@@ -220,7 +222,7 @@ class EvidenceChain:
             recency_weight = max(0.5, 1.0 - (age_seconds / max_age_seconds) * 0.5)
             weighted_sum += e.confidence * recency_weight
             weight_sum += recency_weight
-        
+
         return weighted_sum / weight_sum if weight_sum > 0 else 0.0
 
     def by_source(self, source: EvidenceSource) -> list[Evidence]:
@@ -272,35 +274,35 @@ class EvidenceChain:
         self.evidences.clear()
         self._hashes.clear()
         self._geo_evidences.clear()
-    
-    def filter_by_hint(self, hint_country: str, keep_non_geo: bool = True) -> "EvidenceChain":
+
+    def filter_by_hint(self, hint_country: str, keep_non_geo: bool = True) -> EvidenceChain:
         """Filter evidence to only include items matching or not contradicting the hint country.
-        
+
         This is used to remove evidence from wrong countries when the user provides
         a strong location hint.
-        
+
         Args:
             hint_country: ISO country code or country name from user hint
             keep_non_geo: Whether to keep evidence without country info (default True)
-            
+
         Returns:
             New filtered EvidenceChain
         """
         from src.geo.country_matcher import countries_match
-        
+
         filtered = EvidenceChain()
         for e in self.evidences:
             # Always keep user hints
             if e.source == EvidenceSource.USER_HINT:
                 filtered.add(e)
                 continue
-            
+
             # Keep evidence without country if keep_non_geo is True
             if not e.country:
                 if keep_non_geo:
                     filtered.add(e)
                 continue
-            
+
             # Keep evidence that matches the hint country
             if countries_match(hint_country, e.country):
                 filtered.add(e)
@@ -310,19 +312,19 @@ class EvidenceChain:
                     "Filtered out evidence from {} (hint={})",
                     e.country, hint_country
                 )
-        
+
         logger.info(
             "Filtered evidence chain: {} -> {} evidences (hint={})",
             len(self.evidences),
             len(filtered.evidences),
             hint_country,
         )
-        
+
         return filtered
-    
-    def get_hint_from_evidence(self) -> Optional[str]:
+
+    def get_hint_from_evidence(self) -> str | None:
         """Extract user hint from evidence chain if present.
-        
+
         Returns:
             The hint text or None
         """

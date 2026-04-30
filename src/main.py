@@ -10,17 +10,16 @@ from __future__ import annotations
 import asyncio
 import os
 import re
-from typing import Optional
 
 from PIL import Image
 
 from src.config.settings import get_settings
+from src.geo_data.geo_interface import GeoDataInterface
 from src.image_analysis.analyzer import ImageAnalyzer
 from src.image_analysis.metadata_extractor import MetadataExtractor
 from src.image_analysis.visual_search import VisualSearchEngine
-from src.geo_data.geo_interface import GeoDataInterface
-from src.reasoning.location_resolver import LocationResolver
 from src.models.osv5m_predictor import OSV5MPredictor
+from src.reasoning.location_resolver import LocationResolver
 
 # Legacy config compatibility
 CONFIG = get_settings()
@@ -28,7 +27,7 @@ CONFIG = get_settings()
 
 class GeoLocator:
     """Legacy geolocation class - prefer GeoLocatorOrchestrator for new code."""
-    
+
     def __init__(self):
         settings = get_settings()
         self.metadata_extractor = MetadataExtractor()
@@ -153,7 +152,7 @@ class GeoLocator:
         visual_matches = await self.visual_search.find_similar_locations(features, initial_location)
         return candidates + visual_matches
 
-    def _extract_location_context(self, features: Dict, description: str) -> Optional[str]:
+    def _extract_location_context(self, features: dict, description: str) -> str | None:
         """Extract location context from features and description"""
         # Check for license plate region information
         for plate_info in features.get("extracted_text", {}).get("license_plate_info", []):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from loguru import logger
@@ -10,7 +10,7 @@ from loguru import logger
 from src.cache.decorators import cached
 from src.cache.store import CacheStore
 from src.evidence.chain import Evidence, EvidenceSource
-from src.geo.confidence import calculate_search_confidence, safe_coords
+from src.geo.confidence import calculate_search_confidence
 from src.geo.provider_base import SearchProvider
 
 
@@ -20,7 +20,7 @@ class SearXNGClient(SearchProvider):
     def __init__(
         self,
         base_url: str = "http://localhost:8080",
-        cache: Optional[CacheStore] = None,
+        cache: CacheStore | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self._cache = cache
@@ -140,27 +140,27 @@ class SearXNGClient(SearchProvider):
         boost_factor: float = 1.5,
     ) -> list[dict[str, Any]]:
         """Filter and boost results based on country hint.
-        
+
         Args:
             results: Search results to filter
             country_hint: Country name or ISO code from user hint
             boost_factor: Confidence multiplier for matching results
-            
+
         Returns:
             Filtered and reranked results
         """
         from src.geo.country_matcher import countries_match, extract_country_from_location, get_all_names
-        
+
         target_iso = extract_country_from_location(country_hint)
         if not target_iso:
             return results
-        
+
         scored_results = []
         for r in results:
             # Extract country from result if available
             result_country = r.get("country")
             snippet = (r.get("snippet", "") + " " + r.get("title", "")).lower()
-            
+
             # Use robust country matching
             country_match = False
             if result_country:
@@ -172,7 +172,7 @@ class SearXNGClient(SearchProvider):
                     if name in snippet:
                         country_match = True
                         break
-            
+
             # Score based on match
             if country_match:
                 r["_country_match"] = True
@@ -180,9 +180,9 @@ class SearXNGClient(SearchProvider):
             else:
                 r["_country_match"] = False
                 r["_score_boost"] = 0.5  # Penalty for non-matching
-            
+
             scored_results.append(r)
-        
+
         # Sort by country match first, then by original position
         scored_results.sort(key=lambda x: (not x.get("_country_match", False), results.index(x) if x in results else 999))
         return scored_results

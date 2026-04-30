@@ -24,4 +24,4 @@ lint-fe:
 
 lint-be:
 	uv run ruff check .
-	uv run mypy src
+	uv run basedpyright src

@@ -13,15 +13,14 @@ items to achieve SUPPORTED/GROUNDED instead of always UNCERTAIN.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from src.evidence.chain import Evidence, EvidenceChain
 from src.scoring.config import GroundingParams
 from src.utils.geo_math import haversine_distance
 
 
-class GroundingVerdict(str, Enum):
+class GroundingVerdict(StrEnum):
     """How well a claim is supported by independent evidence."""
 
     GROUNDED = "grounded"          # Multi-source support, no contradictions

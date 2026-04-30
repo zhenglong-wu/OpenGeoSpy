@@ -1,6 +1,5 @@
 """Tests for geographic math utilities."""
 
-import pytest
 
 from src.utils.geo_math import (
     bounding_box,

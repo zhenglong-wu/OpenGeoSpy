@@ -1,13 +1,14 @@
+import re
+from math import cos, radians
+
+import googlemaps
 import overpy
 import requests
-from typing import Dict, List, Optional
-import json
-from .enhanced_search import EnhancedLocationSearch
-import re
-import googlemaps
+
 from src.config import CONFIG
-from math import radians, cos
+
 from .browser_search import BrowserSearchAdapter
+from .enhanced_search import EnhancedLocationSearch
 
 
 class GeoDataInterface:
@@ -19,7 +20,7 @@ class GeoDataInterface:
         self.gmaps = googlemaps.Client(key=CONFIG.GOOGLE_MAPS_API_KEY) if CONFIG.GOOGLE_MAPS_API_KEY else None
         self.browser_search = BrowserSearchAdapter() if CONFIG.USE_BROWSER else None
 
-    def _preprocess_features(self, features: Dict) -> Dict:
+    def _preprocess_features(self, features: dict) -> dict:
         """Preprocess and clean up features with improved entity recognition"""
         processed = {
             "landmarks": [],
@@ -126,7 +127,7 @@ class GeoDataInterface:
         else:
             return "landmark"
 
-    def _extract_location_context(self, text: str) -> Optional[str]:
+    def _extract_location_context(self, text: str) -> str | None:
         """Extract potential location context from entity text"""
         # Look for "in [Location]" pattern
         location_match = re.search(r"(?:in|at|near|of)\s+([A-Z][a-zA-Z\s]+)(?:,|\.|$)", text)
@@ -140,7 +141,7 @@ class GeoDataInterface:
 
         return None
 
-    async def search_location_candidates(self, features: Dict, location_hint: str = None, metadata: Dict = None) -> List[Dict]:
+    async def search_location_candidates(self, features: dict, location_hint: str = None, metadata: dict = None) -> list[dict]:
         """Enhanced location search using multiple sources"""
         # Preprocess features first
         processed_features = self._preprocess_features(features)
@@ -326,7 +327,7 @@ class GeoDataInterface:
 
         return ranked_candidates[:10]  # Return top 10 candidates
 
-    def _is_in_region(self, candidate: Dict, region_info: Dict, initial_coords: Optional[Dict]) -> bool:
+    def _is_in_region(self, candidate: dict, region_info: dict, initial_coords: dict | None) -> bool:
         """Check if a candidate is within the hinted region"""
         # If we have coordinates and bounding box, check that first
         if initial_coords and initial_coords.get("bbox"):
@@ -335,33 +336,37 @@ class GeoDataInterface:
                 return True
 
         # If we have region info, check against that
-        if region_info:
-            # Try to geocode the candidate's location
-            if self.gmaps:
-                try:
-                    reverse_result = self.gmaps.reverse_geocode((candidate["lat"], candidate["lon"]))
-                    if reverse_result:
-                        location = reverse_result[0]
-                        for component in location["address_components"]:
-                            # Check city match
-                            if region_info["city"] and "locality" in component["types"]:
-                                if component["long_name"] == region_info["city"]:
-                                    return True
-                            # Check state match
-                            if region_info["state"] and "administrative_area_level_1" in component["types"]:
-                                if component["long_name"] == region_info["state"]:
-                                    return True
-                            # Check country match
-                            if region_info["country"] and "country" in component["types"]:
-                                if component["long_name"] == region_info["country"]:
-                                    return True
-                except Exception as e:
-                    print(f"Error in reverse geocoding: {e}")
-                    return True  # Default to True to avoid false negatives
+        if region_info and self.gmaps:
+            try:
+                reverse_result = self.gmaps.reverse_geocode((candidate["lat"], candidate["lon"]))
+                if reverse_result:
+                    location = reverse_result[0]
+                    for component in location["address_components"]:
+                        if (
+                            region_info["city"]
+                            and "locality" in component["types"]
+                            and component["long_name"] == region_info["city"]
+                        ):
+                            return True
+                        if (
+                            region_info["state"]
+                            and "administrative_area_level_1" in component["types"]
+                            and component["long_name"] == region_info["state"]
+                        ):
+                            return True
+                        if (
+                            region_info["country"]
+                            and "country" in component["types"]
+                            and component["long_name"] == region_info["country"]
+                        ):
+                            return True
+            except Exception as e:
+                print(f"Error in reverse geocoding: {e}")
+                return True  # Default to True to avoid false negatives
 
         return False
 
-    def _get_location_coordinates(self, location: str) -> Optional[Dict]:
+    def _get_location_coordinates(self, location: str) -> dict | None:
         """Get coordinates for a location string using GeoNames"""
         try:
             url = "http://api.geonames.org/searchJSON"
@@ -387,7 +392,7 @@ class GeoDataInterface:
             print(f"Error getting location coordinates: {e}")
             return None
 
-    def _search_osm(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_osm(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search OpenStreetMap for matching locations"""
         query = self._build_osm_query(features, initial_coords)
         try:
@@ -399,12 +404,11 @@ class GeoDataInterface:
                 confidence = self._calculate_confidence(features, result)
 
                 # Boost confidence if within initial location area
-                if initial_coords:
-                    if (
-                        initial_coords["bbox"]["south"] <= float(result.nodes[0].lat) <= initial_coords["bbox"]["north"]
-                        and initial_coords["bbox"]["west"] <= float(result.nodes[0].lon) <= initial_coords["bbox"]["east"]
-                    ):
-                        confidence = min(1.0, confidence + 0.2)
+                if initial_coords and (
+                    initial_coords["bbox"]["south"] <= float(result.nodes[0].lat) <= initial_coords["bbox"]["north"]
+                    and initial_coords["bbox"]["west"] <= float(result.nodes[0].lon) <= initial_coords["bbox"]["east"]
+                ):
+                    confidence = min(1.0, confidence + 0.2)
 
                 candidate = {
                     "source": "osm",
@@ -422,7 +426,7 @@ class GeoDataInterface:
             print(f"OSM search error: {e}")
             return []
 
-    def _search_geonames(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_geonames(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search GeoNames database"""
         if not self.geonames_username:
             return []
@@ -471,7 +475,7 @@ class GeoDataInterface:
             print(f"GeoNames search error: {e}")
             return []
 
-    def _search_wikidata(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_wikidata(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search Wikidata for landmarks and locations"""
         try:
             landmarks = features.get("landmarks", [])
@@ -536,7 +540,7 @@ class GeoDataInterface:
             print(f"Wikidata search error: {e}")
             return []
 
-    def _search_businesses(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_businesses(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search for businesses using Google Maps Places API"""
         if not self.gmaps:
             return []
@@ -578,7 +582,7 @@ class GeoDataInterface:
 
         return results
 
-    def _search_transport_infrastructure(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_transport_infrastructure(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search for transportation infrastructure like tram lines, stations, etc."""
         results = []
 
@@ -613,7 +617,7 @@ class GeoDataInterface:
               // Transport nodes
               node["railway"~"{"|".join(transport_types)}",i]{area_bounds};
               node["public_transport"~"{"|".join(transport_types)}",i]{area_bounds};
-              
+
               // Transport ways (for routes)
               way["railway"~"{"|".join(transport_types)}",i]{area_bounds};
             );
@@ -650,7 +654,7 @@ class GeoDataInterface:
             print(f"Error searching transport infrastructure: {e}")
             return []
 
-    def _search_cultural_landmarks(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_cultural_landmarks(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search for cultural landmarks and points of interest"""
         results = []
 
@@ -675,7 +679,7 @@ class GeoDataInterface:
               // Historic sites
               way["historic"]{style_filter}{area_bounds};
               node["historic"]{style_filter}{area_bounds};
-              
+
               // Tourism landmarks
               way["tourism"]["historic"]{style_filter}{area_bounds};
               node["tourism"]["historic"]{style_filter}{area_bounds};
@@ -691,9 +695,11 @@ class GeoDataInterface:
                 confidence = 0.6  # Base confidence
 
                 # Boost confidence based on matches
-                if features.get("architecture_style"):
-                    if features["architecture_style"].lower() in element.tags.get("architecture", "").lower():
-                        confidence = min(0.9, confidence + 0.3)
+                if (
+                    features.get("architecture_style")
+                    and features["architecture_style"].lower() in element.tags.get("architecture", "").lower()
+                ):
+                    confidence = min(0.9, confidence + 0.3)
 
                 if any(landmark.lower() in element.tags.get("name", "").lower() for landmark in features.get("landmarks", [])):
                     confidence = min(0.9, confidence + 0.2)
@@ -720,7 +726,7 @@ class GeoDataInterface:
             print(f"Error searching cultural landmarks: {e}")
             return []
 
-    def _rank_candidates(self, candidates: List[Dict], features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _rank_candidates(self, candidates: list[dict], features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Rank candidates based on multiple factors"""
         for candidate in candidates:
             score = candidate.get("confidence", 0.5)  # Start with base confidence
@@ -760,9 +766,9 @@ class GeoDataInterface:
 
     def _calculate_distance(self, point1: tuple, point2: tuple) -> float:
         """Calculate distance between two points in meters"""
-        from math import sin, cos, sqrt, atan2, radians
+        from math import atan2, cos, radians, sin, sqrt
 
-        R = 6371000  # Earth radius in meters
+        earth_radius_m = 6371000
 
         lat1, lon1 = map(radians, point1)
         lat2, lon2 = map(radians, point2)
@@ -772,11 +778,11 @@ class GeoDataInterface:
 
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        distance = R * c
+        distance = earth_radius_m * c
 
         return distance
 
-    def _deduplicate_candidates(self, candidates: List[Dict]) -> List[Dict]:
+    def _deduplicate_candidates(self, candidates: list[dict]) -> list[dict]:
         """Remove duplicate locations based on proximity and name similarity"""
         unique_candidates = []
         seen_locations = set()
@@ -789,7 +795,7 @@ class GeoDataInterface:
 
         return unique_candidates
 
-    def _calculate_confidence(self, features: Dict, location: Dict) -> float:
+    def _calculate_confidence(self, features: dict, location: dict) -> float:
         """Calculate confidence score for OSM matches"""
         score = 0.5  # Base score
 
@@ -800,7 +806,7 @@ class GeoDataInterface:
 
         return min(score, 1.0)
 
-    def _calculate_geonames_confidence(self, features: Dict, location: Dict) -> float:
+    def _calculate_geonames_confidence(self, features: dict, location: dict) -> float:
         """Calculate confidence score for GeoNames matches"""
         score = 0.5  # Base score
 
@@ -811,7 +817,7 @@ class GeoDataInterface:
 
         return min(score, 1.0)
 
-    def _build_osm_query(self, features: Dict, initial_coords: Optional[Dict] = None) -> str:
+    def _build_osm_query(self, features: dict, initial_coords: dict | None = None) -> str:
         """Build optimized OSM query with location constraints"""
         # Define search radius based on confidence and location type
         if initial_coords:
@@ -833,7 +839,7 @@ class GeoDataInterface:
                 radius_km = 10
 
             # Calculate bounding box
-            from math import radians, cos, sin, asin, sqrt
+            from math import cos, radians
 
             lat = float(initial_coords.get("lat", 0))
             lon = float(initial_coords.get("lon", 0))
@@ -905,7 +911,7 @@ class GeoDataInterface:
 
         return query
 
-    def _search_google_maps(self, features: Dict, initial_coords: Optional[Dict] = None) -> List[Dict]:
+    def _search_google_maps(self, features: dict, initial_coords: dict | None = None) -> list[dict]:
         """Search locations using Google Maps API"""
         if not self.gmaps:
             return []

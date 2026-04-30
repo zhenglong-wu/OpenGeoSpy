@@ -1,7 +1,6 @@
 """Tests for cache store and decorators."""
 
 import asyncio
-import time
 
 import pytest
 

@@ -7,20 +7,23 @@ Nested settings group related config together for clarity.
 from __future__ import annotations
 
 import os
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
+if TYPE_CHECKING:
+    from src.scoring.config import ScoringConfig
+
 # Load .env into os.environ so flat env var mappings work
 load_dotenv()
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     DEV = "dev"
     STAGING = "staging"
     PROD = "prod"
@@ -62,7 +65,7 @@ class BrowserSettings(BaseModel):
     tls_impersonation: str = "chrome131"
 
     # Proxy
-    proxy_url: Optional[str] = None
+    proxy_url: str | None = None
 
     # CAPTCHA
     capsolver_api_key: str = ""
@@ -272,7 +275,7 @@ def get_settings() -> Settings:
 
 
 @lru_cache
-def get_scoring_config() -> "ScoringConfig":
+def get_scoring_config() -> ScoringConfig:
     """Load ScoringConfig: env-var path > evolution auto-apply > defaults."""
     from src.scoring.config import ScoringConfig
 

@@ -1,6 +1,5 @@
 """Tests for the chat handler and session manager."""
 
-import pytest
 
 from src.chat.intent import ChatIntent
 from src.chat.session import Session, SessionManager

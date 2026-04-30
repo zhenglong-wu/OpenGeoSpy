@@ -1,17 +1,21 @@
-from typing import List, Dict, Optional
-import requests
-from PIL import Image
-import io
 import base64
+import contextlib
+import io
 from concurrent.futures import ThreadPoolExecutor
-import numpy as np
+from math import cos, radians
+
 import cv2
+import numpy as np
+import overpy
+import requests
 from overpy import Overpass
+from PIL import Image
+
 from config import CONFIG
 
 
 class VisualSearchEngine:
-    def __init__(self, google_api_key: Optional[str] = None, bing_api_key: Optional[str] = None):
+    def __init__(self, google_api_key: str | None = None, bing_api_key: str | None = None):
         self.google_api_key = google_api_key
         self.bing_api_key = bing_api_key
         self.osm_api = Overpass()
@@ -22,13 +26,13 @@ class VisualSearchEngine:
             "business": self._search_business_locations,
         }
 
-    async def find_similar_locations(self, image_data: Dict, search_area: Optional[Dict] = None) -> List[Dict]:
+    async def find_similar_locations(self, image_data: dict, search_area: dict | None = None) -> list[dict]:
         """Find visually similar locations using multiple search engines"""
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(search_func, image_data, search_area) for search_func in self.search_apis.values()]
             return [future.result() for future in futures]
 
-    def _prepare_image(self, image_path: str) -> Dict:
+    def _prepare_image(self, image_path: str) -> dict:
         """Prepare image data for API requests"""
         if image_path.startswith(("http://", "https://")):
             response = requests.get(image_path)
@@ -44,7 +48,7 @@ class VisualSearchEngine:
 
         return {"base64": base64_image, "bytes": img_bytes, "size": image.size}
 
-    def _get_search_area(self, location: Dict) -> Optional[Dict]:
+    def _get_search_area(self, location: dict) -> dict | None:
         """Get search area from location"""
         if not location or not isinstance(location, dict):
             return None
@@ -73,7 +77,7 @@ class VisualSearchEngine:
             print(f"Error creating search area: {str(e)}")
             return None
 
-    def _search_google_images(self, image_data: Dict, search_area: Optional[Dict] = None) -> List[Dict]:
+    def _search_google_images(self, image_data: dict, search_area: dict | None = None) -> list[dict]:
         """Search Google for similar images"""
         if not self.google_api_key:
             return []
@@ -111,10 +115,8 @@ class VisualSearchEngine:
                 for location in location_candidates:
                     similarity_score = 0.6  # Base score
                     if "image" in item and "thumbnailLink" in item["image"]:
-                        try:
+                        with contextlib.suppress(BaseException):
                             similarity_score = self._calculate_image_similarity(image_data["bytes"], requests.get(item["image"]["thumbnailLink"]).content)
-                        except:
-                            pass
 
                     results.append(
                         {
@@ -175,7 +177,7 @@ class VisualSearchEngine:
             print(f"Error calculating image similarity: {e}")
             return 0.5  # Default similarity score
 
-    def _search_duckduckgo(self, image_data: Dict, search_area: Dict = None) -> List[Dict]:
+    def _search_duckduckgo(self, image_data: dict, search_area: dict = None) -> list[dict]:
         """Search DuckDuckGo for similar images"""
         try:
             # DuckDuckGo image search URL
@@ -223,7 +225,7 @@ class VisualSearchEngine:
             print(f"DuckDuckGo search error: {e}")
             return []
 
-    def _search_osm_images(self, image_data: Dict, search_area: Optional[Dict] = None) -> List[Dict]:
+    def _search_osm_images(self, image_data: dict, search_area: dict | None = None) -> list[dict]:
         """Search OpenStreetMap for images and locations"""
         if not search_area or not isinstance(search_area, dict):
             print("Invalid or missing search area")
@@ -409,7 +411,7 @@ class VisualSearchEngine:
             print(f"OSM search error: {str(e)}")
             return []
 
-    def _extract_location_from_text(self, text: str) -> List[Dict]:
+    def _extract_location_from_text(self, text: str) -> list[dict]:
         """Extract multiple potential location information from text using various methods"""
         candidates = []
 
@@ -422,7 +424,7 @@ class VisualSearchEngine:
                 )
 
             # 2. Use googlesearch to find location references
-            search_results = search(f"location coordinates {text}", num_results=5)
+            search_results = search(f"location coordinates {text}", num_results=5)  # noqa: F821 - legacy code, googlesearch not installed
 
             for result in search_results:
                 # Look for coordinate patterns in search results
@@ -448,7 +450,7 @@ class VisualSearchEngine:
                     place_name = match.group(1)
                     # Use geocoding to get coordinates
                     try:
-                        url = f"http://api.geonames.org/searchJSON"
+                        url = "http://api.geonames.org/searchJSON"
                         params = {"q": place_name, "maxRows": 3, "username": CONFIG["geonames_username"], "style": "FULL"}
 
                         response = requests.get(url, params=params)
@@ -510,10 +512,10 @@ class VisualSearchEngine:
             print(f"Error extracting locations from text: {e}")
             return []
 
-    def _get_place_coordinates(self, place_name: str) -> Optional[Dict]:
+    def _get_place_coordinates(self, place_name: str) -> dict | None:
         """Get coordinates for a place name using GeoNames"""
         try:
-            url = f"http://api.geonames.org/searchJSON"
+            url = "http://api.geonames.org/searchJSON"
             params = {"q": place_name, "maxRows": 1, "username": CONFIG["geonames_username"]}
 
             response = requests.get(url, params=params)
@@ -523,10 +525,10 @@ class VisualSearchEngine:
                 result = data["geonames"][0]
                 return {"lat": float(result["lat"]), "lon": float(result["lng"])}
             return None
-        except:
+        except Exception:
             return None
 
-    def _adjust_coordinates(self, lat: float, lon: float, distance_km: float, direction: str) -> Dict:
+    def _adjust_coordinates(self, lat: float, lon: float, distance_km: float, direction: str) -> dict:
         """Adjust coordinates based on distance and direction"""
         # Approximate degrees per km
         lat_km = 1 / 110.574  # 1 degree latitude = 110.574 km
@@ -543,7 +545,7 @@ class VisualSearchEngine:
 
         return {"lat": lat, "lon": lon}
 
-    def _extract_coordinates(self, text: str) -> Dict:
+    def _extract_coordinates(self, text: str) -> dict:
         """Extract coordinates from text using regex patterns"""
         import re
 
@@ -573,7 +575,7 @@ class VisualSearchEngine:
 
         return None
 
-    def _deduplicate_results(self, results: List[Dict]) -> List[Dict]:
+    def _deduplicate_results(self, results: list[dict]) -> list[dict]:
         """Remove duplicate locations based on image and location similarity"""
         unique_results = []
         seen_locations = set()
@@ -586,7 +588,7 @@ class VisualSearchEngine:
 
         return unique_results
 
-    def _rank_results(self, results: List[Dict], initial_location: Dict = None) -> List[Dict]:
+    def _rank_results(self, results: list[dict], initial_location: dict = None) -> list[dict]:
         """Rank results based on multiple factors"""
         for result in results:
             score = 0.5  # Base score
@@ -606,9 +608,9 @@ class VisualSearchEngine:
 
     def _calculate_distance(self, point1: tuple, point2: tuple) -> float:
         """Calculate distance between two points in meters"""
-        from math import sin, cos, sqrt, atan2, radians
+        from math import atan2, cos, radians, sin, sqrt
 
-        R = 6371000  # Earth radius in meters
+        earth_radius_m = 6371000
 
         lat1, lon1 = map(radians, point1)
         lat2, lon2 = map(radians, point2)
@@ -618,11 +620,11 @@ class VisualSearchEngine:
 
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        distance = R * c
+        distance = earth_radius_m * c
 
         return distance
 
-    def _search_business_locations(self, image_data: Dict, search_area: Dict = None) -> List[Dict]:
+    def _search_business_locations(self, image_data: dict, search_area: dict = None) -> list[dict]:
         """Search for specific businesses and landmarks"""
         if not search_area:
             return []
@@ -653,7 +655,7 @@ class VisualSearchEngine:
             print(f"Error searching business locations: {e}")
             return []
 
-    def _search_google_places(self, business_name: str, search_area: Dict) -> List[Dict]:
+    def _search_google_places(self, business_name: str, search_area: dict) -> list[dict]:
         """Search Google Places API for business locations"""
         try:
             url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
@@ -684,7 +686,7 @@ class VisualSearchEngine:
             print(f"Error searching Google Places: {e}")
             return []
 
-    def _search_osm_businesses(self, business_name: str, search_area: Dict) -> List[Dict]:
+    def _search_osm_businesses(self, business_name: str, search_area: dict) -> list[dict]:
         """Search OpenStreetMap for businesses"""
         try:
             query = f"""
@@ -726,7 +728,7 @@ class VisualSearchEngine:
             print(f"Error searching OSM businesses: {e}")
             return []
 
-    def _search_local_directories(self, business_name: str, search_area: Dict) -> List[Dict]:
+    def _search_local_directories(self, business_name: str, search_area: dict) -> list[dict]:
         """Search local business directories"""
         try:
             # Implement searches for:
@@ -739,7 +741,7 @@ class VisualSearchEngine:
             print(f"Error searching local directories: {e}")
             return []
 
-    def _verify_business_locations(self, results: List[Dict], initial_location: Dict) -> List[Dict]:
+    def _verify_business_locations(self, results: list[dict], initial_location: dict) -> list[dict]:
         """Verify and refine business locations"""
         verified_results = []
 
@@ -774,7 +776,7 @@ class VisualSearchEngine:
 
         return verified_results
 
-    def _get_google_place_details(self, place_id: str) -> Optional[Dict]:
+    def _get_google_place_details(self, place_id: str) -> dict | None:
         """Get detailed information about a place from Google Places API"""
         try:
             url = "https://maps.googleapis.com/maps/api/place/details/json"
@@ -809,7 +811,7 @@ class VisualSearchEngine:
         except Exception:
             return False
 
-    def _cross_reference_location(self, result: Dict, initial_location: Dict) -> bool:
+    def _cross_reference_location(self, result: dict, initial_location: dict) -> bool:
         """Cross-reference location with other data sources"""
         try:
             # Check if location is within expected area

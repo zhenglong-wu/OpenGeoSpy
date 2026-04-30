@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
 
 import numpy as np
 from loguru import logger
@@ -17,7 +16,7 @@ from loguru import logger
 class ConfidenceCalibrator:
     """Isotonic regression calibrator for pipeline confidence scores."""
 
-    def __init__(self, data_path: Optional[str] = None):
+    def __init__(self, data_path: str | None = None):
         self._fitted = False
         self._x: list[float] = []  # Raw scores
         self._y: list[float] = []  # Calibrated values (monotonic)

@@ -25,12 +25,13 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import contextlib
 import importlib
 import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -215,10 +216,8 @@ def append_history(target: str, entry: dict) -> float:
     prior_total = 0.0
     if log_file.exists():
         for line in log_file.read_text().splitlines():
-            try:
+            with contextlib.suppress(Exception):
                 prior_total += float(json.loads(line).get("cost_usd", 0) or 0)
-            except Exception:
-                pass
 
     entry["cost_usd_cumulative"] = round(prior_total + entry.get("cost_usd", 0), 5)
     with open(log_file, "a") as f:
@@ -241,10 +240,8 @@ def check_cost_cap(target: str) -> None:
         return
     total = 0.0
     for line in log_file.read_text().splitlines():
-        try:
+        with contextlib.suppress(Exception):
             total += float(json.loads(line).get("cost_usd", 0) or 0)
-        except Exception:
-            pass
     if total >= cap:
         emit_and_exit(
             0.0,
@@ -318,7 +315,7 @@ def main() -> None:
     cost_usd = float(metrics.total_cost_usd or 0.0)
 
     entry = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "target": target,
         "score": round(score, 4),
         "score_breakdown": breakdown,

@@ -10,7 +10,7 @@ patterns from geo_interface.py.
 from __future__ import annotations
 
 import asyncio
-import re
+import contextlib
 from typing import Any
 
 from loguru import logger
@@ -24,7 +24,6 @@ from src.geo.osm_client import OSMClient
 from src.geo.provider_base import SearchProvider
 from src.search.graph import QueryIntent, SearchGraph, SearchNodeStatus
 from src.search.smart_expander import SmartQueryExpander
-from src.utils.geo_math import validate_coordinates
 
 
 class WebIntelAgent:
@@ -166,7 +165,7 @@ class WebIntelAgent:
         if len(chain.geo_evidences) < 3:
             try:
                 suggestions = await self._expander.suggest(
-                    graph, chain, weak_areas, 
+                    graph, chain, weak_areas,
                     country_hint=country_hint,
                     raw_hint=raw_hint,
                 )
@@ -211,21 +210,21 @@ class WebIntelAgent:
         return chain, graph
 
     async def _execute_pending_nodes(
-        self, 
-        graph: SearchGraph, 
+        self,
+        graph: SearchGraph,
         chain: EvidenceChain,
         country_hint: str | None = None,
         recorder: Any = None,
     ) -> None:
         """Execute all pending search nodes in the graph in parallel.
-        
+
         Args:
             graph: Search graph with nodes to execute
             chain: Evidence chain to add results to
             country_hint: ISO country code to prioritize results from
         """
-        import time as _time
         import hashlib
+        import time as _time
 
         pending = graph.pending_nodes()
         if not pending or not self._providers:
@@ -283,7 +282,7 @@ class WebIntelAgent:
                 return []
 
         results = await asyncio.gather(*[_run_node(n) for n in pending], return_exceptions=True)
-        
+
         # P2.1: Cross-provider deduplication using content hashes
         seen_hashes: set[str] = set()
         for result in results:
@@ -308,7 +307,7 @@ class WebIntelAgent:
         """Build optimized search queries from evidence.
 
         Adapted from enhanced_search.py query building pattern.
-        
+
         Returns:
             Tuple of (queries list, raw_hint or None)
             Note: country_hint is resolved asynchronously in search() method
@@ -378,10 +377,9 @@ class WebIntelAgent:
             if e.source in (EvidenceSource.VLM_GEO, EvidenceSource.STREETCLIP):
                 if e.country and e.city:
                     queries.append(f"{e.city} {e.country}")
-                elif e.country:
+                elif e.country and ocr_result and ocr_result.get("business_names"):
                     # Try to narrow down with OCR data
-                    if ocr_result and ocr_result.get("business_names"):
-                        queries.append(f"{ocr_result['business_names'][0]} {e.country}")
+                    queries.append(f"{ocr_result['business_names'][0]} {e.country}")
 
         # Deduplicate while preserving order
         seen = set()
@@ -395,12 +393,12 @@ class WebIntelAgent:
         return unique, raw_hint
 
     async def _provider_search(
-        self, 
+        self,
         query: str,
         country_hint: str | None = None,
     ) -> list[Evidence]:
         """Search across all configured providers in parallel (capped by semaphore).
-        
+
         Args:
             query: Search query string
             country_hint: ISO country code to prioritize results from
@@ -412,17 +410,17 @@ class WebIntelAgent:
             async with self._api_semaphore:
                 # Standard search
                 results = await provider.search(query, num_results=5)
-                
+
                 # Apply country filtering if hint available and provider supports it
                 if country_hint and hasattr(provider, 'filter_by_country_hint'):
                     results = provider.filter_by_country_hint(
-                        results, 
-                        country_hint, 
+                        results,
+                        country_hint,
                         boost_factor=1.5
                     )
-                    
+
                 evidences = provider.results_to_evidence(results, query)
-                
+
                 # Apply score boosts/penalties from country filtering
                 for ev in evidences:
                     # Find matching result to get boost
@@ -436,17 +434,17 @@ class WebIntelAgent:
                 # Serper-specific: also try places search for geo data
                 if hasattr(provider, "search_places"):
                     places = await provider.search_places(query)
-                    
+
                     # Apply country filtering to places too
                     if country_hint and hasattr(provider, 'filter_by_country_hint'):
                         places = provider.filter_by_country_hint(
-                            places, 
-                            country_hint, 
+                            places,
+                            country_hint,
                             boost_factor=1.5
                         )
-                    
+
                     place_evidences = provider.results_to_evidence(places, query)
-                    
+
                     # Apply score boosts
                     for ev in place_evidences:
                         for r in places:
@@ -455,7 +453,7 @@ class WebIntelAgent:
                                 if boost and ev.confidence is not None:
                                     ev.confidence = min(1.0, ev.confidence * boost)
                                 break
-                    
+
                     evidences.extend(place_evidences)
 
                 return evidences
@@ -516,9 +514,7 @@ class WebIntelAgent:
     async def close(self):
         """Clean up resources."""
         for provider in self._providers:
-            try:
+            with contextlib.suppress(Exception):
                 await provider.close()
-            except Exception:
-                pass
         if self._browser_pool:
             await self._browser_pool.close()

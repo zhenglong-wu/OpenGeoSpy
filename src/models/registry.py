@@ -6,22 +6,20 @@ discovered at startup by the ML ensemble agent.
 
 from __future__ import annotations
 
-from typing import Optional, Type
-
 from loguru import logger
 
 from src.config.settings import Settings
-from src.models.base import GeoModel, ModelCapability, ModelInfo
+from src.models.base import GeoModel, ModelCapability
 
 
 class ModelRegistry:
     """Singleton registry for geo models."""
 
-    _models: dict[str, Type[GeoModel]] = {}
+    _models: dict[str, type[GeoModel]] = {}
     _instances: dict[str, GeoModel] = {}
 
     @classmethod
-    def register(cls, model_cls: Type[GeoModel]) -> Type[GeoModel]:
+    def register(cls, model_cls: type[GeoModel]) -> type[GeoModel]:
         """Class decorator to register a GeoModel implementation.
 
         Usage::
@@ -32,7 +30,7 @@ class ModelRegistry:
         """
         # Instantiate temporarily to get info
         try:
-            tmp = object.__new__(model_cls)
+            object.__new__(model_cls)
             # Some models need __init__ to set defaults, but info() should
             # work at the class level or with minimal init.
             name = model_cls.__name__
@@ -44,7 +42,7 @@ class ModelRegistry:
         return model_cls
 
     @classmethod
-    def get_all(cls) -> dict[str, Type[GeoModel]]:
+    def get_all(cls) -> dict[str, type[GeoModel]]:
         """Return all registered model classes."""
         return dict(cls._models)
 
@@ -82,7 +80,7 @@ class ModelRegistry:
         return enabled
 
     @classmethod
-    def get_by_capability(cls, cap: ModelCapability, settings: Optional[Settings] = None) -> list[GeoModel]:
+    def get_by_capability(cls, cap: ModelCapability, settings: Settings | None = None) -> list[GeoModel]:
         """Return enabled models that have a given capability."""
         if settings is None:
             # Return from already-instantiated models

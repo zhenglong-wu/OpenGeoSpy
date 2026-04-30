@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 
-class TraceEventType(str, Enum):
+class TraceEventType(StrEnum):
     HEADER = "header"
     STEP_START = "step_start"
     STEP_COMPLETE = "step_complete"
@@ -33,7 +33,7 @@ class TraceHeader:
     image_hash: str = ""
     version: str = ""
     settings_snapshot: dict = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict:
         return {
@@ -52,7 +52,7 @@ class TraceEvent:
     """A single trace event (step, LLM call, evidence, etc.)."""
 
     event_type: TraceEventType
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     data: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -100,7 +100,7 @@ class StepEvent:
     status: str  # "started" or "completed"
     duration_ms: float = 0.0
     evidence_count: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_trace_event(self) -> TraceEvent:
         event_type = TraceEventType.STEP_START if self.status == "started" else TraceEventType.STEP_COMPLETE
@@ -126,12 +126,12 @@ class TraceResult:
     total_cost_usd: float = 0.0
     total_tokens: int = 0
     total_duration_ms: float = 0.0
-    ground_truth: Optional[dict] = None  # Set during eval runs
+    ground_truth: dict | None = None  # Set during eval runs
 
     def to_dict(self) -> dict:
         return {
             "type": TraceEventType.RESULT.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "prediction": self.prediction,
             "candidates": self.candidates,
             "total_cost_usd": self.total_cost_usd,

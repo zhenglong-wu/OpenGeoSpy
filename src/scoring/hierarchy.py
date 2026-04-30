@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 from src.evidence.chain import EvidenceChain
 from src.scoring.grounding import GroundingEngine, GroundingResult, GroundingVerdict

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import base64
 import io
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 from PIL import Image
@@ -40,7 +40,7 @@ LANGUAGES_DETECTED: [comma-separated list]
 async def extract_text(
     image_path: str,
     client: Any,
-    settings: Optional[Any] = None,
+    settings: Any | None = None,
 ) -> dict[str, list[str]]:
     """Extract text from image using VLM.
 
@@ -48,7 +48,7 @@ async def extract_text(
         image_path: Path to the image file
         client: OpenAI-compatible async client
         settings: Settings object with LLM configuration
-        
+
     Returns dict with keys: street_signs, business_names, building_info,
     license_plates, informational, languages.
     """
@@ -56,7 +56,7 @@ async def extract_text(
 
     try:
         image_url = _encode_image(image_path)
-        
+
         # Get LLM params from centralized config
         if settings is None:
             from src.config.settings import get_settings
@@ -180,7 +180,7 @@ def _parse_ocr_response(text: str) -> dict[str, list[str]]:
                 after_colon = line.split(":", 1)[1].strip() if ":" in line else ""
                 if after_colon and not after_colon.startswith("-"):
                     if current_category == "languages":
-                        result[current_category] = [l.strip() for l in after_colon.split(",") if l.strip()]
+                        result[current_category] = [lang.strip() for lang in after_colon.split(",") if lang.strip()]
                     else:
                         result[current_category].append(after_colon)
                 break
@@ -190,7 +190,7 @@ def _parse_ocr_response(text: str) -> dict[str, list[str]]:
                 item = line.lstrip("- ").strip()
                 if item:
                     if current_category == "languages":
-                        result[current_category].extend(l.strip() for l in item.split(",") if l.strip())
+                        result[current_category].extend(lang.strip() for lang in item.split(",") if lang.strip())
                     else:
                         result[current_category].append(item)
 

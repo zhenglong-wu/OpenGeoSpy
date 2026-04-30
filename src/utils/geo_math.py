@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
-
 
 EARTH_RADIUS_KM = 6371.0
 
@@ -43,7 +41,7 @@ def bounding_box(lat: float, lon: float, radius_km: float) -> tuple[float, float
 
 def weighted_centroid(
     points: list[tuple[float, float, float]],
-) -> Optional[tuple[float, float]]:
+) -> tuple[float, float] | None:
     """Calculate weighted centroid from list of (lat, lon, weight) tuples.
 
     Returns None if no points or all weights are zero.

@@ -88,6 +88,12 @@ line-length = 120
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N806"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Form", "fastapi.Query", "fastapi.Body"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

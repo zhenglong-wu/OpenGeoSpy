@@ -1,22 +1,22 @@
-from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
-from typing import Dict, Optional, List, Tuple
+import base64
 import datetime
+import mimetypes
+import os
+from io import BytesIO
+
+import cv2
+import numpy as np
 import piexif
 import requests
-from io import BytesIO
-import os
-import cv2
-import base64
-import numpy as np
-import mimetypes
+from PIL import Image
+from PIL.ExifTags import GPSTAGS, TAGS
 
 
 class MetadataExtractor:
     def __init__(self):
         self.timezone_api = "http://api.geonames.org/timezoneJSON"
 
-    def extract_metadata(self, file_path: str) -> Dict:
+    def extract_metadata(self, file_path: str) -> dict:
         """Extract all available metadata from image or video file"""
         try:
             # Get file system metadata first
@@ -72,7 +72,7 @@ class MetadataExtractor:
             print(f"Error extracting metadata: {e}")
             return {}
 
-    def _get_file_metadata(self, file_path: str) -> Dict:
+    def _get_file_metadata(self, file_path: str) -> dict:
         """Get file system metadata"""
         try:
             if file_path.startswith(("http://", "https://")):
@@ -94,7 +94,7 @@ class MetadataExtractor:
             print(f"Error getting file metadata: {e}")
             return {}
 
-    def _extract_video_metadata(self, file_path: str, file_metadata: Dict) -> Dict:
+    def _extract_video_metadata(self, file_path: str, file_metadata: dict) -> dict:
         """Extract metadata from video file"""
         try:
             cap = cv2.VideoCapture(file_path)
@@ -135,30 +135,30 @@ class MetadataExtractor:
         try:
             fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
             return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
-        except:
+        except Exception:
             return "unknown"
 
-    def _get_audio_info(self, file_path: str) -> List[Dict]:
+    def _get_audio_info(self, file_path: str) -> list[dict]:
         """Get audio stream information using ffprobe"""
         try:
             import ffmpeg
 
             probe = ffmpeg.probe(file_path)
             return [stream for stream in probe["streams"] if stream["codec_type"] == "audio"]
-        except:
+        except Exception:
             return []
 
-    def _get_video_bitrate(self, file_path: str) -> Optional[int]:
+    def _get_video_bitrate(self, file_path: str) -> int | None:
         """Get video bitrate using ffprobe"""
         try:
             import ffmpeg
 
             probe = ffmpeg.probe(file_path)
             return int(probe["format"]["bit_rate"])
-        except:
+        except Exception:
             return None
 
-    def _create_thumbnail(self, frame: np.ndarray, size: Tuple[int, int] = (320, 240)) -> str:
+    def _create_thumbnail(self, frame: np.ndarray, size: tuple[int, int] = (320, 240)) -> str:
         """Create base64 thumbnail from video frame"""
         try:
             # Resize frame
@@ -175,30 +175,30 @@ class MetadataExtractor:
             # Convert to base64
             _, buffer = cv2.imencode(".jpg", thumbnail)
             return base64.b64encode(buffer).decode()
-        except:
+        except Exception:
             return ""
 
-    def _get_color_profile(self, image: Image) -> Optional[str]:
+    def _get_color_profile(self, image: Image) -> str | None:
         """Get image color profile information"""
         try:
             if "icc_profile" in image.info:
                 return "ICC profile present"
             return None
-        except:
+        except Exception:
             return None
 
-    def _get_bit_depth(self, image: Image) -> Optional[int]:
+    def _get_bit_depth(self, image: Image) -> int | None:
         """Get image bit depth"""
         try:
             return image.bits if hasattr(image, "bits") else None
-        except:
+        except Exception:
             return None
 
-    def _get_compression_info(self, image: Image) -> Optional[str]:
+    def _get_compression_info(self, image: Image) -> str | None:
         """Get image compression information"""
         try:
             return image.info.get("compression", None)
-        except:
+        except Exception:
             return None
 
     def _calculate_image_hash(self, image: Image) -> str:
@@ -211,10 +211,10 @@ class MetadataExtractor:
             # Create binary hash
             bits = "".join(["1" if pixel > avg else "0" for pixel in pixels])
             return hex(int(bits, 2))[2:].zfill(16)
-        except:
+        except Exception:
             return ""
 
-    def _analyze_image_content(self, image: Image) -> Dict:
+    def _analyze_image_content(self, image: Image) -> dict:
         """Analyze basic image content characteristics"""
         try:
             # Convert to numpy array for analysis
@@ -234,7 +234,7 @@ class MetadataExtractor:
             analysis["might_be_screenshot"] = self._detect_screenshot(img_array)
 
             return analysis
-        except:
+        except Exception:
             return {}
 
     def _detect_screenshot(self, img_array: np.ndarray) -> bool:
@@ -243,7 +243,7 @@ class MetadataExtractor:
             # Screenshots often have very uniform edges
             edges = np.mean(np.abs(np.diff(img_array[:, 0]))) + np.mean(np.abs(np.diff(img_array[0, :])))
             return edges < 10  # Arbitrary threshold
-        except:
+        except Exception:
             return False
 
     def _get_file_type(self, file_path: str) -> str:
@@ -258,7 +258,7 @@ class MetadataExtractor:
         mime_type = self._get_file_type(file_path)
         return ext in video_extensions or (mime_type and mime_type.startswith("video/"))
 
-    def _extract_camera_settings(self, exif: Dict) -> Dict:
+    def _extract_camera_settings(self, exif: dict) -> dict:
         """Extract detailed camera settings from EXIF data"""
         settings = {}
 
@@ -280,7 +280,7 @@ class MetadataExtractor:
 
         return settings
 
-    def _log_metadata(self, metadata: Dict) -> None:
+    def _log_metadata(self, metadata: dict) -> None:
         """Log extracted metadata in a structured format"""
         print("\n=== Detailed Metadata Analysis ===")
 
@@ -321,7 +321,7 @@ class MetadataExtractor:
 
         print("===============================\n")
 
-    def _extract_exif(self, image: Image) -> Optional[Dict]:
+    def _extract_exif(self, image: Image) -> dict | None:
         """Extract EXIF data from image"""
         try:
             exif_dict = {}
@@ -340,7 +340,7 @@ class MetadataExtractor:
             # Get GPS Info
             if piexif.ImageIFD.GPSTag in info:
                 gps_info = {}
-                for key in GPSTAGS.keys():
+                for key in GPSTAGS:
                     if key in info[piexif.ImageIFD.GPSTag]:
                         gps_info[GPSTAGS[key]] = info[piexif.ImageIFD.GPSTag][key]
                 exif_dict["GPSInfo"] = gps_info
@@ -350,7 +350,7 @@ class MetadataExtractor:
             print(f"Error extracting EXIF data: {e}")
             return None
 
-    def _analyze_exif_data(self, exif: Dict) -> Dict:
+    def _analyze_exif_data(self, exif: dict) -> dict:
         """Analyze EXIF data for location hints"""
         analysis = {"timestamp": None, "camera_model": None, "gps_coordinates": None, "estimated_timezone": None}
 
@@ -379,7 +379,7 @@ class MetadataExtractor:
                         lon = -lon
 
                     analysis["gps_coordinates"] = (lat, lon)
-            except:
+            except Exception:
                 pass
 
         return analysis

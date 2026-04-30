@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
+from typing import Any
 
 from loguru import logger
 from openai import AsyncOpenAI
 
-from src.patterns import PatternRegistry, classify_intent as pattern_classify_intent
 from src.config.llm import LLMCallType, get_llm_params
+from src.patterns import classify_intent as pattern_classify_intent
 
 
-class ChatIntent(str, Enum):
+class ChatIntent(StrEnum):
     ASK_WHY_NOT = "ask_why_not"       # "Why not Turkey?"
     ZOOM_FEATURE = "zoom_feature"     # "What does the sign say?"
     TRY_SEARCH = "try_search"         # "Try searching for X"
@@ -47,21 +47,21 @@ Respond with only the intent name (one of the above), nothing else."""
 
 async def classify_intent(
     message: str,
-    client: Optional[AsyncOpenAI] = None,
-    settings: Optional[Any] = None,
+    client: AsyncOpenAI | None = None,
+    settings: Any | None = None,
     use_llm: bool = True,
 ) -> ChatIntent:
     """Classify user message into a ChatIntent.
-    
+
     Uses LLM for classification when available, with configurable pattern
     matching as fallback (no hardcoded patterns in code).
-    
+
     Args:
         message: User's message to classify
         client: OpenAI client (optional, if None uses pattern matching only)
         settings: Settings object with LLM configuration
         use_llm: Whether to try LLM first (default True)
-        
+
     Returns:
         ChatIntent enum value
     """
@@ -82,26 +82,26 @@ async def classify_intent(
 
             # If LLM returned something we don't recognize, fall through to pattern matching
             logger.debug("LLM returned unknown intent '{}', using pattern fallback", raw)
-            
+
         except Exception as e:
             logger.warning("Intent classification failed: {}", e)
             # Fall through to pattern matching
-    
+
     # Use configurable pattern matching as fallback (or primary if no client)
     intent_name, confidence = pattern_classify_intent(message)
-    
+
     # Map string to enum
     intent = INTENT_MAP.get(intent_name)
     if intent:
         return intent
-    
+
     logger.debug("Pattern matching returned unknown intent '{}', defaulting to GENERAL", intent_name)
     return ChatIntent.GENERAL
 
 
 def classify_intent_sync(message: str) -> ChatIntent:
     """Synchronous intent classification using pattern matching only.
-    
+
     Useful when you don't have async context or LLM client.
     """
     intent_name, confidence = pattern_classify_intent(message)

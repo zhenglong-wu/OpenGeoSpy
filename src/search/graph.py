@@ -7,14 +7,13 @@ node tracks which evidence it produced.
 
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 
-class QueryIntent(str, Enum):
+class QueryIntent(StrEnum):
     INITIAL = "initial"
     REFINE = "refine"
     BROADEN = "broaden"
@@ -23,7 +22,7 @@ class QueryIntent(str, Enum):
     VERIFY = "verify"
 
 
-class SearchNodeStatus(str, Enum):
+class SearchNodeStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -40,13 +39,13 @@ class SearchNode:
     intent: QueryIntent
     status: SearchNodeStatus = SearchNodeStatus.PENDING
     provider: str = "serper"  # serper, osm, browser, brave, searxng
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     evidence_ids: list[str] = field(default_factory=list)
     evidence_count: int = 0
     best_confidence: float = 0.0
     duration_ms: float = 0.0
     language: str = "en"
-    error: Optional[str] = None
+    error: str | None = None
     retry_count: int = 0  # P1.7: Track retries for smarter pruning
     cost_effectiveness: float = 0.0  # P2.6: evidence_count / duration_ms
 
@@ -101,7 +100,7 @@ class SearchGraph:
         query: str,
         intent: QueryIntent = QueryIntent.INITIAL,
         provider: str = "serper",
-        parent_id: Optional[str] = None,
+        parent_id: str | None = None,
         language: str = "en",
     ) -> SearchNode:
         """Create and add a new search node."""
@@ -236,7 +235,7 @@ class SearchGraph:
                         "parent_id": node.id,
                         "query_template": broader,
                         "intent": QueryIntent.BROADEN,
-                        "reason": f"Zero results, try broader query before pruning",
+                        "reason": "Zero results, try broader query before pruning",
                     })
                 if len(suggestions) >= max_suggestions:
                     break

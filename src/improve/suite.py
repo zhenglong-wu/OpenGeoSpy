@@ -71,7 +71,7 @@ class BenchmarkSuite:
         }
 
     @classmethod
-    def load(cls, path: str | Path) -> "BenchmarkSuite":
+    def load(cls, path: str | Path) -> BenchmarkSuite:
         path = Path(path)
         with open(path) as f:
             data = json.load(f)
@@ -325,10 +325,7 @@ def add_dataset_to_suite(
 ) -> Path:
     """Append or replace a dataset entry in a suite manifest."""
     suite_path = Path(suite_path)
-    if suite_path.exists():
-        suite = BenchmarkSuite.load(suite_path)
-    else:
-        suite = BenchmarkSuite(name=suite_path.stem)
+    suite = BenchmarkSuite.load(suite_path) if suite_path.exists() else BenchmarkSuite(name=suite_path.stem)
 
     suite.datasets = [
         existing

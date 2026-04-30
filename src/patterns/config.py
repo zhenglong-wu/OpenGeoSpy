@@ -10,7 +10,6 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
 
 from loguru import logger
 
@@ -18,13 +17,13 @@ from loguru import logger
 @dataclass
 class PatternCategory:
     """A category with associated patterns for classification."""
-    
+
     name: str
     patterns: list[str]  # Regex patterns (case-insensitive)
     keywords: list[str]  # Simple substring matches
     languages: list[str] = field(default_factory=lambda: ["en"])
     compiled_patterns: list[re.Pattern] = field(default_factory=list, repr=False)
-    
+
     def __post_init__(self):
         # Pre-compile regex patterns
         for p in self.patterns:
@@ -32,23 +31,19 @@ class PatternCategory:
                 self.compiled_patterns.append(re.compile(p, re.IGNORECASE))
             except re.error as e:
                 logger.warning("Invalid regex pattern '{}': {}", p, e)
-    
+
     def matches(self, text: str) -> bool:
         """Check if text matches any pattern or keyword."""
         text_lower = text.lower()
-        
+
         # Check keywords (substring match)
         for kw in self.keywords:
             if kw.lower() in text_lower:
                 return True
-        
+
         # Check regex patterns
-        for pattern in self.compiled_patterns:
-            if pattern.search(text):
-                return True
-        
-        return False
-    
+        return any(pattern.search(text) for pattern in self.compiled_patterns)
+
     def extract(self, text: str) -> list[str]:
         """Extract all matches from text."""
         matches = []
@@ -64,7 +59,7 @@ class PatternCategory:
 @dataclass
 class IntentPattern:
     """Pattern configuration for a chat intent."""
-    
+
     intent: str
     description: str
     examples: list[str]
@@ -72,43 +67,43 @@ class IntentPattern:
     keywords: list[str]  # Simple keyword matches
     priority: int = 0  # Higher = checked first
     compiled_patterns: list[re.Pattern] = field(default_factory=list, repr=False)
-    
+
     def __post_init__(self):
         for p in self.patterns:
             try:
                 self.compiled_patterns.append(re.compile(p, re.IGNORECASE))
             except re.error as e:
                 logger.warning("Invalid intent pattern '{}': {}", p, e)
-    
+
     def matches(self, message: str) -> tuple[bool, float]:
         """Check if message matches this intent.
-        
+
         Returns:
             Tuple of (matched, confidence)
         """
         msg_lower = message.lower().strip()
-        
+
         # Check keywords first (lower confidence)
         for kw in self.keywords:
             if kw in msg_lower:
                 return True, 0.7
-        
+
         # Check regex patterns (higher confidence)
         for pattern in self.compiled_patterns:
             if pattern.search(message):
                 return True, 0.9
-        
+
         return False, 0.0
 
 
 class PatternRegistry:
     """Registry for configurable patterns.
-    
+
     Loads patterns from configuration files and provides fast lookup.
     """
-    
-    _instance: "PatternRegistry | None" = None
-    
+
+    _instance: PatternRegistry | None = None
+
     def __init__(self, config_dir: Path | None = None):
         self.config_dir = config_dir or Path(__file__).parent / "configs"
         self._intent_patterns: list[IntentPattern] = []
@@ -116,36 +111,36 @@ class PatternRegistry:
         self._street_patterns: dict[str, list[str]] = {}  # lang -> suffixes
         self._prefix_patterns: dict[str, list[str]] = {}  # type -> prefixes
         self._loaded = False
-    
+
     @classmethod
-    def get(cls) -> "PatternRegistry":
+    def get(cls) -> PatternRegistry:
         """Get singleton instance."""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
+
     @classmethod
     def reset(cls) -> None:
         """Reset singleton (for testing)."""
         cls._instance = None
-    
+
     def load(self, force: bool = False) -> None:
         """Load patterns from configuration files."""
         if self._loaded and not force:
             return
-        
+
         # Load intent patterns
         self._load_intent_patterns()
-        
+
         # Load text categories
         self._load_text_categories()
-        
+
         # Load street patterns
         self._load_street_patterns()
-        
+
         # Load prefix patterns
         self._load_prefix_patterns()
-        
+
         self._loaded = True
         logger.info(
             "PatternRegistry loaded: {} intents, {} categories, {} street patterns",
@@ -153,11 +148,11 @@ class PatternRegistry:
             len(self._text_categories),
             len(self._street_patterns),
         )
-    
+
     def _load_intent_patterns(self) -> None:
         """Load chat intent patterns."""
         config_path = self.config_dir / "intents.json"
-        
+
         # Default patterns (embedded for zero-config)
         default_intents = {
             "intents": [
@@ -239,7 +234,7 @@ class PatternRegistry:
                 },
             ]
         }
-        
+
         if config_path.exists():
             try:
                 with open(config_path) as f:
@@ -250,18 +245,18 @@ class PatternRegistry:
                 config = default_intents
         else:
             config = default_intents
-        
+
         self._intent_patterns = [
-            IntentPattern(**intent_data) 
+            IntentPattern(**intent_data)
             for intent_data in config.get("intents", [])
         ]
         # Sort by priority (highest first)
         self._intent_patterns.sort(key=lambda x: x.priority, reverse=True)
-    
+
     def _load_text_categories(self) -> None:
         """Load text categorization patterns."""
         config_path = self.config_dir / "text_categories.json"
-        
+
         default_categories = {
             "categories": [
                 {
@@ -299,7 +294,7 @@ class PatternRegistry:
                 },
             ]
         }
-        
+
         if config_path.exists():
             try:
                 with open(config_path) as f:
@@ -309,16 +304,16 @@ class PatternRegistry:
                 config = default_categories
         else:
             config = default_categories
-        
+
         self._text_categories = {
             cat["name"]: PatternCategory(**cat)
             for cat in config.get("categories", [])
         }
-    
+
     def _load_street_patterns(self) -> None:
         """Load street name patterns by language."""
         config_path = self.config_dir / "streets.json"
-        
+
         default_streets = {
             "suffixes": {
                 "en": ["street", "st", "avenue", "ave", "road", "rd", "boulevard", "blvd", "lane", "ln", "drive", "dr", "way", "place", "pl", "court", "ct"],
@@ -336,22 +331,22 @@ class PatternRegistry:
                 "de": r"([A-Zäöüß][a-zäöüß]+(?:straße|strasse|str\.|weg|platz|gasse|allee))",
             }
         }
-        
+
         if config_path.exists():
             try:
                 with open(config_path) as f:
                     config = json.load(f)
-            except Exception as e:
+            except Exception:
                 config = default_streets
         else:
             config = default_streets
-        
+
         self._street_patterns = config.get("suffixes", {})
-    
+
     def _load_prefix_patterns(self) -> None:
         """Load prefix patterns for hint extraction."""
         config_path = self.config_dir / "prefixes.json"
-        
+
         default_prefixes = {
             "location_hint": [
                 "the image is from ", "the photo is from ", "the picture is from ",
@@ -361,68 +356,68 @@ class PatternRegistry:
                 "look in ", "i think it's in ", "probably in ", "likely in ",
             ],
         }
-        
+
         if config_path.exists():
             try:
                 with open(config_path) as f:
                     config = json.load(f)
-            except Exception as e:
+            except Exception:
                 config = default_prefixes
         else:
             config = default_prefixes
-        
+
         self._prefix_patterns = config
-    
+
     # --- Public API ---
-    
+
     def classify_intent(self, message: str) -> tuple[str, float]:
         """Classify a chat message into an intent.
-        
+
         Args:
             message: User's message
-            
+
         Returns:
             Tuple of (intent_name, confidence)
         """
         self.load()
-        
+
         for pattern in self._intent_patterns:
             matched, confidence = pattern.matches(message)
             if matched:
                 return pattern.intent, confidence
-        
+
         return "general", 0.5
-    
+
     def classify_text(self, text: str) -> str:
         """Classify text into a category.
-        
+
         Args:
             text: Text to classify
-            
+
         Returns:
             Category name or "other"
         """
         self.load()
-        
+
         for name, category in self._text_categories.items():
             if category.matches(text):
                 return name
-        
+
         return "other"
-    
+
     def extract_search_query(self, message: str) -> str:
         """Extract search query from a 'try search' message.
-        
+
         Args:
             message: User's search request message
-            
+
         Returns:
             Extracted search query
         """
         self.load()
-        
+
         text = message.strip()
-        
+
         # Patterns for extracting search queries (order matters - more specific first)
         patterns = [
             r"^try\s+(?:searching|search)\s+(?:for\s+)?(.+)$",
@@ -430,37 +425,37 @@ class PatternRegistry:
             r"^can you (?:search|google|find)\s+(?:for\s+)?(.+)$",
             r"(?:search|google|look\s+up|find)\s+(?:for\s+)?(.+)",
         ]
-        
+
         for pattern in patterns:
             m = re.search(pattern, text, re.IGNORECASE)
             if m and m.groups():
                 query = m.group(1).strip()
                 if query:
                     return query
-        
+
         # Fallback: just return the message
         return text
-    
+
     def extract_location_from_hint(self, message: str) -> str:
         """Extract location from a hint message.
-        
+
         Args:
             message: User's hint message
-            
+
         Returns:
             Extracted location text
         """
         self.load()
-        
+
         text = message.strip()
-        
+
         # Try prefix patterns
         for prefix in self._prefix_patterns.get("location_hint", []):
             if text.lower().startswith(prefix.lower()):
                 extracted = text[len(prefix):].strip()
                 if extracted:
                     return extracted.rstrip('?.!')
-        
+
         # Try regex extraction from intent patterns
         for pattern in self._intent_patterns:
             if pattern.intent == "refine_hint":
@@ -468,23 +463,23 @@ class PatternRegistry:
                     m = regex.search(text)
                     if m and m.groups():
                         return m.group(1).strip().rstrip('?.!')
-        
+
         return text
-    
+
     def is_street_name(self, text: str, language: str = "en") -> bool:
         """Check if text looks like a street name."""
         self.load()
-        
+
         suffixes = self._street_patterns.get(language, [])
         text_lower = text.lower()
-        
+
         return any(text_lower.endswith(s.lower()) for s in suffixes)
-    
+
     def get_street_suffixes(self, language: str = "en") -> list[str]:
         """Get street suffixes for a language."""
         self.load()
         return self._street_patterns.get(language, [])
-    
+
     def get_all_languages(self) -> list[str]:
         """Get all supported languages."""
         self.load()

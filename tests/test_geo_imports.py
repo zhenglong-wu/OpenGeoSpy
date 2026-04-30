@@ -4,7 +4,6 @@ Ensures country_codes exports what serper_client and other consumers need,
 catching missing exports before deployment.
 """
 
-import pytest
 
 
 def test_country_codes_exports_required_symbols():

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import random
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from loguru import logger
 

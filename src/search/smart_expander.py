@@ -14,8 +14,7 @@ from typing import Any
 from loguru import logger
 
 from src.evidence.chain import EvidenceChain
-from src.search.graph import QueryIntent, SearchGraph, SearchNode
-
+from src.search.graph import QueryIntent, SearchGraph
 
 EXPANSION_PROMPT = """You are a geolocation search query generator. Given a parent search query and evidence context, generate improved follow-up search queries.
 
@@ -88,7 +87,7 @@ class SmartQueryExpander:
         raw_hint: str | None = None,
     ) -> list[dict[str, Any]]:
         """Generate smart expansion queries using LLM.
-        
+
         Args:
             graph: Search graph with node history
             evidence_chain: Evidence from prior agents

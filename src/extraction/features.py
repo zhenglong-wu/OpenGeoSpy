@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import io
 import json
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 from PIL import Image
@@ -99,7 +99,7 @@ Extract ALL visual features that could help identify the location. Return a JSON
 async def extract_visual_features(
     image_path: str,
     client: Any,
-    settings: Optional[Any] = None,
+    settings: Any | None = None,
     location_hint: str | None = None,
 ) -> dict[str, Any]:
     """Extract visual features from image using VLM.
@@ -116,7 +116,7 @@ async def extract_visual_features(
 
     try:
         image_url = _encode_image(image_path)
-        
+
         # Get LLM params from centralized config
         if settings is None:
             from src.config.settings import get_settings
@@ -148,7 +148,7 @@ async def extract_visual_features(
 
         raw = resp.choices[0].message.content
         features = _parse_features(raw)
-        
+
         # Store hint verification results in metadata if present
         if location_hint and "hint_verification" in features:
             logger.info(
@@ -156,7 +156,7 @@ async def extract_visual_features(
                 features["hint_verification"].get("supports_hint"),
                 features["hint_verification"].get("confidence_in_hint", 0),
             )
-        
+
         return features
 
     except Exception as e:
@@ -262,7 +262,7 @@ def _parse_features(raw: str) -> dict[str, Any]:
 
     if text.startswith("```"):
         lines = text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         text = "\n".join(lines)
 
     try:

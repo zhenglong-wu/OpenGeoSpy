@@ -6,27 +6,25 @@ but delegates to the compiled LangGraph StateGraph internally.
 
 from __future__ import annotations
 
-import json
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, AsyncGenerator
+from enum import StrEnum
+from typing import Any
 
 from loguru import logger
-
 from openai import AsyncOpenAI
 
 from src.agents.graph import build_pipeline_graph
 from src.agents.state import PipelineState
 from src.cache import CacheStore
 from src.config.settings import Settings, get_settings
-from src.evidence.chain import EvidenceChain
-from src.tracing.recorder import TraceRecorder
 from src.tracing.index import TraceIndex
+from src.tracing.recorder import TraceRecorder
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"

@@ -7,7 +7,7 @@ import json
 import os
 import time
 from collections import OrderedDict
-from typing import Any, Optional
+from typing import Any
 
 import aiofiles
 from loguru import logger
@@ -25,7 +25,7 @@ class CacheStore:
     def __init__(
         self,
         max_memory_entries: int = 1000,
-        disk_path: Optional[str] = None,
+        disk_path: str | None = None,
         default_ttl: int = 3600,
     ):
         self._memory: OrderedDict[str, tuple[Any, float]] = OrderedDict()
@@ -36,7 +36,7 @@ class CacheStore:
         if disk_path:
             os.makedirs(disk_path, exist_ok=True)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Retrieve from cache. Returns None on miss or expiry."""
         # Check memory first
         if key in self._memory:
@@ -57,7 +57,7 @@ class CacheStore:
 
         return None
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Store in cache with TTL (seconds)."""
         ttl = ttl or self._default_ttl
         self._memory_set(key, value, ttl)
@@ -75,13 +75,13 @@ class CacheStore:
         while len(self._memory) > self._max_memory:
             self._memory.popitem(last=False)
 
-    async def _disk_get(self, key: str) -> Optional[Any]:
+    async def _disk_get(self, key: str) -> Any | None:
         """Read from disk cache."""
         path = os.path.join(self._disk_path, f"{key}.json")
         if not os.path.exists(path):
             return None
         try:
-            async with aiofiles.open(path, "r") as f:
+            async with aiofiles.open(path) as f:
                 data = json.loads(await f.read())
             if time.time() < data["expires_at"]:
                 return data["value"]

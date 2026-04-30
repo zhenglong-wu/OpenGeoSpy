@@ -10,17 +10,14 @@ from __future__ import annotations
 import asyncio
 import heapq
 import json
-import math
-import re
 from typing import Any
 
-import numpy as np
 from loguru import logger
 from openai import AsyncOpenAI
 from sklearn.cluster import DBSCAN
 
-from src.config.settings import Settings, get_scoring_config
 from src.config.llm import LLMCallType, get_llm_params
+from src.config.settings import Settings, get_scoring_config
 from src.evidence.chain import Evidence, EvidenceChain, EvidenceSource
 from src.evidence.verifier import LocationVerifier
 from src.scoring.scorer import GeoScorer
@@ -314,7 +311,7 @@ class ReasoningAgent:
         1. Cluster evidence by geographic proximity (haversine, eps=50km)
         2. For each cluster, synthesize a candidate via LLM
         3. Rank by composite score
-        
+
         Args:
             evidence_chain: Combined evidence from all agents
             features: Raw visual features (for environment type)
@@ -322,7 +319,6 @@ class ReasoningAgent:
             skip_verification: Skip CoVe verification for faster results
             hint: Optional location hint to strongly prefer matching candidates
         """
-        from src.utils.geo_math import haversine_distance
 
         # Get single prediction as primary
         primary = await self.reason(evidence_chain, features, skip_verification=skip_verification, started_at_monotonic=started_at_monotonic)
@@ -354,7 +350,7 @@ class ReasoningAgent:
             hint_country = extract_country_from_location(hint_text)
             if hint_country:
                 all_countries.extend([hint_country] * self.scorer.hint_vote_multiplier)
-        
+
         # Use hint_text for matching (either from parameter or evidence chain)
         hint = hint_text
 
@@ -411,33 +407,33 @@ class ReasoningAgent:
         # Boost candidates matching the location hint; penalize non-matches
         if hint:
             from src.geo.country_matcher import countries_match, extract_country_from_location
-            
+
             # Extract country from hint for more robust matching
             hint_country = extract_country_from_location(hint)
-            
+
             for c in candidates:
                 c_country = c.get("country") or ""
                 c_city = c.get("city") or ""
                 c_name = c.get("name") or ""
-                
+
                 # Use robust country matching
                 country_match = countries_match(hint, c_country) if c_country else False
-                
+
                 # Also check if hint matches city or name (string-based)
                 hint_lower = hint.lower()
                 city_match = hint_lower in c_city.lower() if c_city else False
                 name_match = hint_lower in c_name.lower() if c_name else False
-                
+
                 # Check if hint contains the country name or vice versa
                 hint_contains_country = False
                 if hint_country and c_country:
                     hint_contains_country = countries_match(hint_country, c_country)
-                
+
                 if country_match or city_match or name_match or hint_contains_country:
                     # Strong boost for matching candidates
                     strong_match = city_match or name_match
                     c["confidence"] = self.scorer.hint_boost(
-                        c.get("confidence", 0), 
+                        c.get("confidence", 0),
                         strong_match=strong_match
                     )
                     c["hint_matched"] = True
@@ -503,7 +499,7 @@ class ReasoningAgent:
         if tasks:
             try:
                 await asyncio.wait_for(asyncio.gather(*tasks), timeout=45.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Reverse geocoding timed out after 45s, some candidates may lack address details")
 
     def _cluster_by_proximity(
@@ -547,7 +543,7 @@ class ReasoningAgent:
 
             # Group evidences by cluster label
             clusters_dict: dict[int, list[Evidence]] = {}
-            for label, evidence in zip(labels, valid_evidences):
+            for label, evidence in zip(labels, valid_evidences, strict=False):
                 if label not in clusters_dict:
                     clusters_dict[label] = []
                 clusters_dict[label].append(evidence)
@@ -621,7 +617,7 @@ class ReasoningAgent:
         has_hint: bool = False,
     ) -> list[dict]:
         """Rank candidates by composite score with country consensus term.
-        
+
         Args:
             candidates: List of candidate dicts with location info
             dominant_country: The dominant country from evidence voting
@@ -629,7 +625,7 @@ class ReasoningAgent:
             has_hint: Whether a user hint was provided (increases country_match weight)
         """
         evidence_count_cap = self.scorer.config.candidate_ranking.evidence_count_cap
-        for i, c in enumerate(candidates):
+        for c in candidates:
             evidence_count = min(len(c.get("evidence_trail", [])), evidence_count_cap)
             # Cap source_diversity iteration to the same limit as evidence_count
             capped_trail = c.get("evidence_trail", [])[:evidence_count_cap]
@@ -748,7 +744,7 @@ class ReasoningAgent:
         has_hint: bool = False,
     ) -> float:
         """Penalize confidence when candidate country contradicts dominant consensus.
-        
+
         Args:
             confidence: Original confidence score
             candidate_country: Country of the candidate
@@ -770,7 +766,7 @@ class ReasoningAgent:
             if consensus_strength < effective_threshold:
                 return confidence
             return max(0.0, confidence * (1.0 - consensus_strength * self.scorer.config.country_penalty.penalty_factor))
-        
+
         return self.scorer.country_penalty(
             confidence, candidate_country, dominant_country, consensus_strength,
         )

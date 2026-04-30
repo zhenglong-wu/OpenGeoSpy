@@ -62,4 +62,6 @@ env/
 
 # GEPA optimizer backups
 *.gepa-bak
+
 .DS_Store
+CLAUDE.md

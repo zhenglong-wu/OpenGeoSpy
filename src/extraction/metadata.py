@@ -6,13 +6,11 @@ Removes: bare excepts, print-based logging.
 
 from __future__ import annotations
 
-import base64
+import contextlib
 import datetime
-import hashlib
 import mimetypes
 import os
-from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -110,7 +108,7 @@ class MetadataExtractor:
             logger.warning("Could not read file metadata: {}", e)
             return {"filename": os.path.basename(file_path)}
 
-    def _extract_exif(self, image: Image.Image) -> Optional[dict]:
+    def _extract_exif(self, image: Image.Image) -> dict | None:
         try:
             exif_dict = {}
             info = image.getexif()
@@ -154,10 +152,8 @@ class MetadataExtractor:
 
         # Timestamp
         if "DateTime" in exif:
-            try:
+            with contextlib.suppress(ValueError):
                 analysis["timestamp"] = datetime.datetime.strptime(exif["DateTime"], "%Y:%m:%d %H:%M:%S")
-            except ValueError:
-                pass
 
         # Camera
         make = exif.get("Make", "")

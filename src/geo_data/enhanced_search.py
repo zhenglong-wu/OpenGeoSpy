@@ -1,10 +1,8 @@
-from typing import List, Dict, Optional
-from googlesearch import search
-import overpy
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import re
 from collections import defaultdict
+
+import overpy
+from googlesearch import search
 
 
 class EnhancedLocationSearch:
@@ -14,7 +12,7 @@ class EnhancedLocationSearch:
         self.max_google_results = max_google_results
         self.max_osm_queries = max_osm_queries
 
-    async def find_location_candidates(self, features: Dict, metadata: Dict = None, location_hint: str = None) -> List[Dict]:
+    async def find_location_candidates(self, features: dict, metadata: dict = None, location_hint: str = None) -> list[dict]:
         """Find location candidates using multiple sources"""
         print("\n=== Starting Location Search ===")
         print("Features received:", features)
@@ -92,7 +90,7 @@ class EnhancedLocationSearch:
 
         return candidates
 
-    def _build_search_queries(self, features: Dict, metadata: Dict = None, location_hint: str = None) -> List[str]:
+    def _build_search_queries(self, features: dict, metadata: dict = None, location_hint: str = None) -> list[str]:
         """Build optimized search queries with improved entity-location pairing"""
         print("\n=== Building Search Queries ===")
         queries = []
@@ -161,7 +159,7 @@ class EnhancedLocationSearch:
         print("===========================\n")
         return queries
 
-    def _extract_location_contexts(self, features: Dict, location_hint: str = None) -> List[str]:
+    def _extract_location_contexts(self, features: dict, location_hint: str = None) -> list[str]:
         """Extract all potential location contexts from features and hints"""
         contexts = set()
 
@@ -186,7 +184,7 @@ class EnhancedLocationSearch:
 
         return list(contexts)
 
-    async def _run_google_search(self, query: str) -> List[str]:
+    async def _run_google_search(self, query: str) -> list[str]:
         """Run Google search and return results"""
         try:
             results = list(search(query, num_results=5, lang="en"))  # Limit to 5 results per query
@@ -198,7 +196,7 @@ class EnhancedLocationSearch:
             print(f"Google search error for '{query}': {e}")
             return []
 
-    def _extract_locations(self, search_results: List[List[str]]) -> Dict[str, int]:
+    def _extract_locations(self, search_results: list[list[str]]) -> dict[str, int]:
         """Extract and count location mentions from search results"""
         location_counts = defaultdict(int)
 
@@ -233,7 +231,7 @@ class EnhancedLocationSearch:
 
         return location_counts
 
-    async def _get_location_coordinates(self, location_mentions: Dict[str, int]) -> List[Dict]:
+    async def _get_location_coordinates(self, location_mentions: dict[str, int]) -> list[dict]:
         """Get coordinates for locations using OSM"""
         candidates = []
         query_count = 0
@@ -277,7 +275,7 @@ class EnhancedLocationSearch:
 
         return candidates
 
-    def _rank_candidates(self, candidates: List[Dict], features: Dict) -> List[Dict]:
+    def _rank_candidates(self, candidates: list[dict], features: dict) -> list[dict]:
         """Rank and deduplicate candidates"""
         # Remove duplicates based on proximity
         unique_candidates = []

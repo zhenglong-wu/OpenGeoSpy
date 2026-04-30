@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,11 +39,11 @@ class TraceRecorder:
         self._llm_calls: list[dict] = []
 
         # Build output path: data/traces/YYYY-MM-DD/{session_id}.jsonl
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
         self._output_dir = Path(output_dir) / date_str
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._output_path = self._output_dir / f"{session_id}.jsonl"
-        self._file = open(self._output_path, "ab")
+        self._file = open(self._output_path, "ab")  # noqa: SIM115 - long-lived handle owned by recorder
 
         # Write header
         header = TraceHeader(

@@ -6,10 +6,9 @@ Outputs direct lat/lon coordinates with a meaningful confidence score.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 from loguru import logger
+
 from src.evidence.chain import Evidence, EvidenceSource
 
 
@@ -28,7 +27,7 @@ class GeoCLIPPredictor:
             return
 
         try:
-            import transformers.models.clip.modeling_clip  # noqa: ensure CLIPModel is registered
+            import transformers.models.clip.modeling_clip  # noqa: F401  ensure CLIPModel is registered
             from geoclip import GeoCLIP
 
             self.model = GeoCLIP()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -40,7 +40,7 @@ class InstrumentedOpenAI:
     def __init__(
         self,
         client: AsyncOpenAI,
-        recorder: Optional[TraceRecorder] = None,
+        recorder: TraceRecorder | None = None,
         default_purpose: str = "general",
     ):
         self._client = client

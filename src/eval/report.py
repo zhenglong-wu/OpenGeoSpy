@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.eval.metrics import EvalMetrics
 
@@ -114,7 +114,7 @@ class EvalReport:
         """Full JSON report."""
         report = {
             "label": self.label,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metrics": self.metrics.summary(),
             "by_difficulty": {
                 d: m.summary() for d, m in self.metrics.by_difficulty().items()
@@ -140,7 +140,7 @@ class EvalReport:
             f"# Evaluation Report: {self.label or 'unlabeled'}",
             "",
             f"**Samples:** {s['count']}  ",
-            f"**Date:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+            f"**Date:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
             "",
             "## Accuracy",
             "",

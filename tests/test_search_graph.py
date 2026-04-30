@@ -21,8 +21,8 @@ class TestSearchGraph:
     def test_get_children(self):
         g = SearchGraph()
         parent = g.add_node("root", QueryIntent.INITIAL)
-        c1 = g.add_node("child1", QueryIntent.REFINE, parent_id=parent.id)
-        c2 = g.add_node("child2", QueryIntent.BROADEN, parent_id=parent.id)
+        g.add_node("child1", QueryIntent.REFINE, parent_id=parent.id)
+        g.add_node("child2", QueryIntent.BROADEN, parent_id=parent.id)
         children = g.get_children(parent.id)
         assert len(children) == 2
 
@@ -39,7 +39,7 @@ class TestSearchGraph:
     def test_pending_nodes(self):
         g = SearchGraph()
         n1 = g.add_node("a", QueryIntent.INITIAL)
-        n2 = g.add_node("b", QueryIntent.INITIAL)
+        g.add_node("b", QueryIntent.INITIAL)
         n1.status = SearchNodeStatus.COMPLETED
         assert len(g.pending_nodes()) == 1
 
@@ -48,6 +48,7 @@ class TestSearchGraph:
         n = g.add_node("dead", QueryIntent.INITIAL)
         n.status = SearchNodeStatus.COMPLETED
         n.evidence_count = 0
+        n.retry_count = g.max_retries_initial
         assert n.id in g.dead_ends()
 
     def test_prune_branch(self):

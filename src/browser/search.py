@@ -7,7 +7,7 @@ URL scraping with stealth browser automation.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -20,7 +20,7 @@ from src.evidence.chain import Evidence, EvidenceSource
 class BrowserSearch:
     """Stealth browser-based search operations (Tier 2)."""
 
-    def __init__(self, pool: BrowserPool, cache: Optional[CacheStore] = None):
+    def __init__(self, pool: BrowserPool, cache: CacheStore | None = None):
         self.pool = pool
         self._cache = cache
 

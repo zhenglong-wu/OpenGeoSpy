@@ -5,10 +5,9 @@ Collects (raw_confidence, actual_distance_km) pairs for calibration fitting.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from loguru import logger
 

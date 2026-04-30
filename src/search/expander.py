@@ -8,11 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from loguru import logger
-
-from src.evidence.chain import Evidence, EvidenceChain, EvidenceSource
+from src.evidence.chain import EvidenceChain, EvidenceSource
 from src.search.graph import QueryIntent, SearchGraph
-
 
 # Country to language mapping for translation queries
 COUNTRY_LANGUAGES: dict[str, str] = {
@@ -97,14 +94,14 @@ class QueryExpander:
         # Extract context from evidence
         countries = list(set(evidence_chain.country_predictions))
         top_country = countries[0] if countries else None
-        
+
         # Get cities from evidence
         cities = list(set(
-            e.city for e in evidence_chain.evidences 
+            e.city for e in evidence_chain.evidences
             if e.city
         ))
         top_city = cities[0] if cities else None
-        
+
         # Extract business names and streets from OCR or evidence metadata
         business_names = self._extract_business_names(evidence_chain, ocr_result)
         street_names = self._extract_street_names(evidence_chain, ocr_result)
@@ -184,17 +181,17 @@ class QueryExpander:
         return unique[:8]
 
     def _extract_business_names(
-        self, 
-        evidence_chain: EvidenceChain, 
+        self,
+        evidence_chain: EvidenceChain,
         ocr_result: dict[str, list[str]] | None
     ) -> list[str]:
         """Extract business names from OCR or evidence."""
         names = []
-        
+
         # From OCR result
         if ocr_result:
             names.extend(ocr_result.get("business_names", [])[:3])
-        
+
         # From evidence metadata
         for e in evidence_chain.evidences:
             if e.source == EvidenceSource.OCR:
@@ -203,27 +200,27 @@ class QueryExpander:
                     names.extend(biz[:2])
                 elif biz:
                     names.append(biz)
-        
+
         # Dedupe and return top 3
         return list(dict.fromkeys(names))[:3]
 
     def _extract_street_names(
-        self, 
-        evidence_chain: EvidenceChain, 
+        self,
+        evidence_chain: EvidenceChain,
         ocr_result: dict[str, list[str]] | None
     ) -> list[str]:
         """Extract street names from OCR or evidence."""
         names = []
-        
+
         if ocr_result:
             names.extend(ocr_result.get("street_signs", [])[:2])
-        
+
         for e in evidence_chain.evidences:
             if e.source == EvidenceSource.OCR:
                 streets = e.metadata.get("street_signs", [])
                 if isinstance(streets, list):
                     names.extend(streets[:2])
-        
+
         return list(dict.fromkeys(names))[:2]
 
     def _extract_landmarks(self, evidence_chain: EvidenceChain) -> list[str]:
@@ -237,7 +234,7 @@ class QueryExpander:
             # Also check content for landmark keywords
             if any(kw in e.content.lower() for kw in ["temple", "church", "mosque", "castle", "palace", "tower", "bridge", "monument"]):
                 landmarks.append(e.content[:50])
-        
+
         return list(dict.fromkeys(landmarks))[:3]
 
     def _build_refine_query(
@@ -249,11 +246,11 @@ class QueryExpander:
         country: str | None,
     ) -> str | None:
         """Build a refinement query using specific location details."""
-        
+
         # Best: Business + Street
         if business_names and street_names:
             return f'"{business_names[0]}" "{street_names[0]}" location'
-        
+
         # Good: Business + City/Country
         if business_names:
             biz = business_names[0]
@@ -263,7 +260,7 @@ class QueryExpander:
                 return f'"{biz}" {country} location'
             else:
                 return f'"{biz}" address location'
-        
+
         # Okay: Street + City/Country
         if street_names:
             street = street_names[0]
@@ -271,13 +268,13 @@ class QueryExpander:
                 return f'"{street}" {city}'
             elif country:
                 return f'"{street}" {country}'
-        
+
         # Fallback: Original + specific location keywords
         if city:
             return f"{original_query} {city} exact location"
         elif country:
             return f"{original_query} {country} coordinates"
-        
+
         # Don't generate generic queries
         return None
 
@@ -289,7 +286,7 @@ class QueryExpander:
         landmarks: list[str],
     ) -> str | None:
         """Build a broader query with geographic context."""
-        
+
         if landmarks and country:
             return f"{landmarks[0]} {country} area"
         elif city and country:
@@ -310,20 +307,20 @@ class QueryExpander:
         lang = COUNTRY_LANGUAGES.get(country.lower())
         if not lang:
             return None
-        
+
         translations = BUSINESS_TRANSLATIONS.get(lang, {})
-        
+
         # Translate business type if present
         for eng, native in translations.items():
             if eng in original_query.lower():
                 translated = original_query.lower().replace(eng, native)
                 return f"{original_query} OR {translated}"
-        
+
         # If we have business names, try with native script
         if business_names:
             biz = business_names[0]
             return f'"{biz}" {country}'
-        
+
         return None
 
     def _handle_weak_areas(
@@ -336,7 +333,7 @@ class QueryExpander:
     ) -> list[dict[str, Any]]:
         """Generate queries to address identified weak areas."""
         suggestions = []
-        
+
         if "no_web_corroboration" in weak_areas:
             if top_city and top_country:
                 suggestions.append({

@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from loguru import logger
 
 
-class BatchItemStatus(str, Enum):
+class BatchItemStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -24,8 +24,8 @@ class BatchItem:
     filename: str
     image_path: str
     status: BatchItemStatus = BatchItemStatus.PENDING
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
 
 
 @dataclass
@@ -97,7 +97,7 @@ class BatchManager:
         self._jobs[job.id] = job
         return job
 
-    def get_job(self, job_id: str) -> Optional[BatchJob]:
+    def get_job(self, job_id: str) -> BatchJob | None:
         return self._jobs.get(job_id)
 
     async def process_job(self, job: BatchJob, orchestrator) -> None:

@@ -12,15 +12,13 @@ from typing import Any
 from loguru import logger
 from openai import AsyncOpenAI
 
-from src.config.settings import Settings, get_scoring_config
-from src.evidence.chain import Evidence, EvidenceChain, EvidenceSource
-from src.models.base import ModelCapability
-from src.models.registry import ModelRegistry
-from src.scoring.scorer import GeoScorer
-from src.utils.geo_math import country_level_agreement, geographic_spread
-
 # Importing adapters triggers registration
 import src.models.adapters  # noqa: F401
+from src.config.settings import Settings, get_scoring_config
+from src.evidence.chain import Evidence, EvidenceChain, EvidenceSource
+from src.models.registry import ModelRegistry
+from src.scoring.scorer import GeoScorer
+from src.utils.geo_math import geographic_spread
 
 
 class MLEnsembleAgent:
@@ -53,7 +51,7 @@ class MLEnsembleAgent:
         country_hint: str | None = None,
     ) -> EvidenceChain:
         """Run all enabled ML models in parallel and return aggregated evidence.
-        
+
         Args:
             image_path: Path to image file
             feature_evidence: Prior evidence from feature extraction
@@ -93,7 +91,7 @@ class MLEnsembleAgent:
         tasks = {m.info().name: m.predict(image_path, context) for m in models}
         task_names = list(tasks.keys())
         results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        results = dict(zip(task_names, results_list))
+        results = dict(zip(task_names, results_list, strict=False))
 
         # Collect evidence from each model, applying ensemble weights
         for model in models:
@@ -167,7 +165,7 @@ class MLEnsembleAgent:
         # Weighted country agreement: weight each vote by model weight
         if countries:
             weighted_votes: dict[str, float] = {}
-            for country, w in zip(countries, country_weights):
+            for country, w in zip(countries, country_weights, strict=False):
                 weighted_votes[country] = weighted_votes.get(country, 0) + w
             total_weight = sum(country_weights)
             country_agree = max(weighted_votes.values()) / total_weight if total_weight > 0 else 0.0

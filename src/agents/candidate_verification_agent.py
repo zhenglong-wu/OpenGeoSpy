@@ -253,7 +253,7 @@ class CandidateVerificationAgent:
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
         refs_by_candidate: dict[str, list[dict]] = {}
-        for name, result in zip(tasks.keys(), results):
+        for name, result in zip(tasks.keys(), results, strict=False):
             if isinstance(result, list):
                 refs_by_candidate[name] = result
             else:

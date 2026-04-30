@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from os.path import relpath
 from pathlib import Path
 from typing import Any
@@ -34,8 +34,8 @@ from src.improve.suite import (
     build_regression_dataset_from_traces,
     import_dataset,
 )
-from src.scoring.config import ScoringConfig
 from src.improve.trace_analysis import analyze_trace_file
+from src.scoring.config import ScoringConfig
 from src.utils.json_utils import find_json_object
 
 SCORING_CONFIG_TARGET = "__scoring_config__"
@@ -86,7 +86,7 @@ class CandidateContext:
     failure_summary: list[dict[str, Any]]
     worst_samples: list[dict[str, Any]]
     target_files: list[str]
-    scoring_proposals: list["ScoringProposal"] = field(default_factory=list)
+    scoring_proposals: list[ScoringProposal] = field(default_factory=list)
 
 
 @dataclass
@@ -291,7 +291,7 @@ class ImprovementController:
             "max_concurrent": max_concurrent,
             "judge": judge,
             "candidate_mode": "config_only" if config_only else "mixed",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "baseline_dir": str(experiment_dir / "baseline"),
             "capability_snapshot_path": str(capability_snapshot_path),
             "base_scoring_config_path": base_config_path,
@@ -473,7 +473,7 @@ class ImprovementController:
             candidate_count=count,
             required_streak=required_streak,
             max_waves=max_waves,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
             current_base_config_path=current_base_config_path,
             current_base_config_fingerprint=self._scoring_config_fingerprint(current_base_config_path or None),
         )
@@ -620,14 +620,14 @@ class ImprovementController:
         return analyze_trace_file(trace_path).to_dict()
 
     def _create_experiment_dir(self, experiment_name: str) -> Path:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         slug = _slugify(experiment_name or "improve")
         path = Path(self.settings.improvement.output_dir) / "experiments" / f"{timestamp}_{slug}"
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
 
     def _create_campaign_dir(self, campaign_name: str) -> Path:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         slug = _slugify(campaign_name or "campaign")
         path = Path(self.settings.improvement.output_dir) / "campaigns" / f"{timestamp}_{slug}"
         path.mkdir(parents=True, exist_ok=True)
@@ -664,6 +664,7 @@ class ImprovementController:
             candidate_id,
             target_path,
             candidate_context,
+            base_scoring_config_path=base_scoring_config_path,
             mutator_instructions=mutator_instructions,
         )
         prompt = base_prompt
@@ -733,6 +734,7 @@ class ImprovementController:
         target_path: str,
         candidate_context: CandidateContext,
         *,
+        base_scoring_config_path: str | None = None,
         mutator_instructions: str = "",
     ) -> str:
         if target_path == SCORING_CONFIG_TARGET:
@@ -1414,7 +1416,7 @@ class ImprovementController:
         candidates: list[dict[str, Any]] = []
         seen: set[str] = set()
         for win_index, outcome in enumerate(proposal_feedback.recent_wins[:2], start=1):
-            for change_index, change in enumerate(outcome.changes, start=1):
+            for _change_index, change in enumerate(outcome.changes, start=1):
                 path = str(change.get("path", "")).strip()
                 current_value = _nested_value(config, path)
                 old_value = change.get("old_value")
@@ -1795,9 +1797,7 @@ class ImprovementController:
                     base_fingerprint == current_base_fingerprint
                     and outcome.status == "accepted"
                     and outcome.score > 0
-                ):
-                    recent_wins.append(outcome)
-                elif outcome.status == "accepted" and outcome.score > 0 and len(recent_wins) < 2:
+                ) or outcome.status == "accepted" and outcome.score > 0 and len(recent_wins) < 2:
                     recent_wins.append(outcome)
 
         return ProposalFeedback(
@@ -2076,6 +2076,16 @@ def _flatten_override_paths(overrides: dict[str, Any], prefix: str = "") -> list
         else:
             paths.append(path)
     return paths
+
+
+def _metric(metrics: dict[str, Any], key: str) -> float:
+    value = metrics.get(key)
+    if value is None:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _override_changes(base_config: dict[str, Any], overrides: dict[str, Any]) -> list[dict[str, Any]]:
