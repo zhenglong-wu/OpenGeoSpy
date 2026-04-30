@@ -16,7 +16,12 @@ function getMarkerColor(rank: number): string {
   return RANK_COLORS[rank] ?? '#6B7280'; // gray for rank > 3
 }
 
+const iconCache = new Map<number, L.DivIcon>();
+
 function createNumberedIcon(rank: number): L.DivIcon {
+  const cached = iconCache.get(rank);
+  if (cached) return cached;
+
   const color = getMarkerColor(rank);
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42">
@@ -27,13 +32,15 @@ function createNumberedIcon(rank: number): L.DivIcon {
             fill="${color}" font-family="system-ui, sans-serif">${rank}</text>
     </svg>`;
 
-  return L.divIcon({
+  const icon = L.divIcon({
     html: svg,
-    className: '', // remove default leaflet-div-icon styling
+    className: '',
     iconSize: [30, 42],
     iconAnchor: [15, 42],
     popupAnchor: [0, -42],
   });
+  iconCache.set(rank, icon);
+  return icon;
 }
 
 // ---------------------------------------------------------------------------

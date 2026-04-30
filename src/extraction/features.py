@@ -238,7 +238,7 @@ def to_evidence(features: dict[str, Any], scorer: GeoScorer | None = None) -> li
 
 
 def _encode_image(image_path: str) -> str:
-    img = Image.open(image_path)
+    img = Image.open(image_path).convert("RGB")
     max_dim = 2048
     if max(img.size) > max_dim:
         ratio = max_dim / max(img.size)
@@ -252,31 +252,34 @@ def _encode_image(image_path: str) -> str:
 
 
 def _parse_features(raw: str) -> dict[str, Any]:
-    """Parse VLM response, extracting JSON from possible markdown fences."""
-    try:
-        # Strip markdown code fences if present
-        text = raw.strip()
-        if text.startswith("```"):
-            lines = text.split("\n")
-            # Remove first and last fence lines
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            text = "\n".join(lines)
+    """Parse VLM response, extracting JSON from possible markdown fences or thinking tags."""
+    import re
 
+    text = raw.strip()
+
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
+
+
+    if text.startswith("```"):
+        lines = text.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        text = "\n".join(lines)
+
+    try:
         return json.loads(text)
     except json.JSONDecodeError:
-        logger.warning("Could not parse features JSON, attempting extraction")
-        # Try to find JSON in the response
-        import re
+        pass
 
-        match = re.search(r"\{[\s\S]*\}", raw)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
+    # Try to find JSON object in the response
+    match = re.search(r"\{[\s\S]*\}", text)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
 
-        logger.warning("Failed to parse features from VLM response (first 500 chars): {}", raw[:500])
-        return _empty_features()
+    logger.warning("Failed to parse features from VLM response (first 500 chars): {}", raw[:500])
+    return _empty_features()
 
 
 def _empty_features() -> dict[str, Any]:

@@ -355,12 +355,18 @@ class LLMConfig:
     
     def get_params(self, call_type: LLMCallType, settings: Any) -> dict[str, Any]:
         """Get all parameters for an LLM call.
-        
-        Returns dict with: model, temperature, max_tokens
+
+        Returns dict with: model, temperature/max_tokens (adapted for o-series models).
         """
         config = self.get_config(call_type)
+        model = config.get_model(settings)
+        if model.startswith("o"):
+            return {
+                "model": model,
+                "max_completion_tokens": config.max_tokens,
+            }
         return {
-            "model": config.get_model(settings),
+            "model": model,
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
         }

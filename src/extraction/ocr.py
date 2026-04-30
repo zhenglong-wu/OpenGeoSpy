@@ -138,7 +138,7 @@ def to_evidence(ocr_result: dict[str, list[str]], scorer: GeoScorer | None = Non
 
 def _encode_image(image_path: str) -> str:
     """Encode image as base64 data URL."""
-    img = Image.open(image_path)
+    img = Image.open(image_path).convert("RGB")
 
     # Resize if too large (keep under 4MB for API)
     max_dim = 2048

@@ -36,11 +36,11 @@ class LLMSettings(BaseModel):
     base_url: str = "https://openrouter.ai/api/v1"
 
     # Model tiers
-    fast_model: str = "google/gemini-2.5-flash"
-    reasoning_model: str = "google/gemini-2.5-pro"
-    heavy_model: str = "google/gemini-3.1-pro-preview-20260219"
-    verification_model: str = "qwen/qwen3-vl-235b-a22b-instruct"
-    budget_model: str = "qwen/qwen3-vl-8b-instruct"
+    fast_model: str = "gpt-4o-mini"
+    reasoning_model: str = "o3"
+    heavy_model: str = "o3"
+    verification_model: str = "gpt-4o"
+    budget_model: str = "gpt-4o-mini"
 
     temperature: float = 0.1
     max_retries: int = 3
@@ -155,8 +155,8 @@ class ImprovementSettings(BaseModel):
     worktree_dir: str = "data/improve/worktrees"
     candidate_count: int = 3
     candidate_file_limit: int = 6
-    mutator_model: str = "google/gemini-2.5-pro"
-    judge_model: str = "google/gemini-2.5-flash"
+    mutator_model: str = "o3"
+    judge_model: str = "gpt-4o-mini"
     hard_regression_accuracy_25km: float = 0.01
     hard_regression_country_accuracy: float = 0.01
     hard_regression_median_gcd_km: float = 25.0

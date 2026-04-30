@@ -19,6 +19,33 @@ L.Icon.Default.mergeOptions({
 });
 
 // ---------------------------------------------------------------------------
+// InvalidateOnResize - tells Leaflet to recalculate when container resizes
+// ---------------------------------------------------------------------------
+
+function InvalidateOnResize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        map.invalidateSize();
+      });
+    });
+    observer.observe(container);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [map]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // FitBounds - auto-zooms when candidates change
 // ---------------------------------------------------------------------------
 
@@ -66,6 +93,13 @@ export default function MapView({ candidates, mapRef, onSelectCandidate }: MapVi
       center={DEFAULT_CENTER}
       zoom={DEFAULT_ZOOM}
       className="h-full w-full"
+      worldCopyJump
+      wheelPxPerZoomLevel={400}
+      wheelDebounceTime={5}
+      zoomSnap={0.1}
+      zoomDelta={0.25}
+      zoomAnimation={false}
+      fadeAnimation={false}
       ref={(instance) => {
         if (mapRef && instance) {
           mapRef.current = instance;
@@ -78,6 +112,7 @@ export default function MapView({ candidates, mapRef, onSelectCandidate }: MapVi
       />
       <CandidateMarkers candidates={candidates} onSelectCandidate={onSelectCandidate} />
       <FitBounds candidates={candidates} />
+      <InvalidateOnResize />
     </MapContainer>
   );
 }

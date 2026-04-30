@@ -70,12 +70,17 @@ class _InstrumentedCompletions:
         """Proxy to AsyncOpenAI.chat.completions.create with instrumentation."""
         purpose = kwargs.pop("_purpose", self._parent._default_purpose)
 
+        model = kwargs.get("model", "unknown")
+        if model.startswith("o") and not model.startswith("openai/"):
+            if "max_tokens" in kwargs:
+                kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+            kwargs.pop("temperature", None)
+
         # Bypass instrumentation for streaming — can't extract usage from stream chunks
         if kwargs.get("stream"):
             return await self._parent._client.chat.completions.create(**kwargs)
 
         recorder = self._parent._recorder
-        model = kwargs.get("model", "unknown")
         temperature = kwargs.get("temperature", 0.0)
 
         start = time.monotonic()

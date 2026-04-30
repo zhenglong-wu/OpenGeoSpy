@@ -115,6 +115,12 @@ async def execute_with_retry(
     import asyncio
     import time as _time
 
+    model = kwargs.get("model", "")
+    if isinstance(model, str) and model.startswith("o") and not model.startswith("openai/"):
+        if "max_tokens" in kwargs:
+            kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
+        kwargs.pop("temperature", None)
+
     start_time = _time.monotonic()
     last_error = None
     for attempt in range(1, max_attempts + 1):
