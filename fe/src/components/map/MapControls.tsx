@@ -5,6 +5,7 @@ import EvidenceCard from '../evidence/EvidenceCard';
 import ConfidenceWaterfall from '../evidence/ConfidenceWaterfall';
 import ConfidenceBadge from '../evidence/ConfidenceBadge';
 import ProvenanceDashboard from '../evidence/ProvenanceDashboard';
+import StreetViewEmbed from './StreetViewEmbed';
 
 // ---------------------------------------------------------------------------
 // Rank badge color helpers
@@ -196,6 +197,11 @@ export default memo(function MapControls({
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Street-level imagery at predicted location */}
+            {selected?.latitude != null && selected?.longitude != null && (
+              <StreetViewEmbed latitude={selected.latitude} longitude={selected.longitude} />
             )}
           </div>
         )}

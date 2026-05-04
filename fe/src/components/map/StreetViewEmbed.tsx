@@ -1,17 +1,17 @@
-import { useMemo } from 'react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { useEffect, useMemo, useState } from 'react';
 
 interface StreetViewEmbedProps {
   latitude: number;
   longitude: number;
 }
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
+interface MapillaryImage {
+  id: string;
+  image_url: string;
+  thumb_url: string;
+  lat: number;
+  lon: number;
+}
 
 function isValidCoordinate(lat: number, lng: number): boolean {
   return (
@@ -26,62 +26,62 @@ function isValidCoordinate(lat: number, lng: number): boolean {
   );
 }
 
-// ---------------------------------------------------------------------------
-// StreetViewEmbed -- Mapillary viewer at given coordinates
-// ---------------------------------------------------------------------------
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 export default function StreetViewEmbed({ latitude, longitude }: StreetViewEmbedProps) {
-  const valid = useMemo(
-    () => isValidCoordinate(latitude, longitude),
-    [latitude, longitude],
-  );
+  const valid = useMemo(() => isValidCoordinate(latitude, longitude), [latitude, longitude]);
 
-  const mapillaryUrl = useMemo(() => {
-    if (!valid) return '';
-    // Mapillary embed URL centered on coordinates
-    // Using the Mapillary map view centered at the given lat/lng with a reasonable zoom
-    return `https://www.mapillary.com/embed?lat=${latitude}&lng=${longitude}&z=17&dateFrom=2020-01-01`;
+  const [images, setImages] = useState<MapillaryImage[]>([]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!valid) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setActiveIdx(0);
+
+    fetch(`/api/mapillary/nearby?lat=${latitude}&lon=${longitude}&radius=500&limit=8`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setImages(data.images ?? []);
+      })
+      .catch((e) => !cancelled && setError(String(e)))
+      .finally(() => !cancelled && setLoading(false));
+
+    return () => {
+      cancelled = true;
+    };
   }, [latitude, longitude, valid]);
 
   if (!valid) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="flex flex-col items-center justify-center h-64 bg-gray-50">
-          {/* Map pin icon */}
-          <svg
-            className="h-12 w-12 text-gray-300 mb-3"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-            />
-          </svg>
-          <p className="text-sm text-gray-500 font-medium">Invalid Coordinates</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Provide valid latitude ({latitude}) and longitude ({longitude}) to view street-level imagery.
-          </p>
-        </div>
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden p-4 text-xs text-gray-500">
+        Invalid coordinates — provide valid lat/lng to view street imagery.
       </div>
     );
   }
 
+  const active = images[activeIdx];
+  const distance = active ? haversineMeters(latitude, longitude, active.lat, active.lon) : 0;
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Street View</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Street View Comparison</h3>
           <p className="text-[11px] text-gray-500 font-mono">
             {latitude.toFixed(6)}, {longitude.toFixed(6)}
           </p>
@@ -90,37 +90,60 @@ export default function StreetViewEmbed({ latitude, longitude }: StreetViewEmbed
           href={`https://www.mapillary.com/app/?lat=${latitude}&lng=${longitude}&z=17`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
         >
-          Open in Mapillary
-          <svg
-            className="h-3 w-3"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-            />
-          </svg>
+          Open in Mapillary →
         </a>
       </div>
 
-      {/* Mapillary iframe */}
-      <div className="relative" style={{ paddingBottom: '56.25%' /* 16:9 aspect */ }}>
-        <iframe
-          src={mapillaryUrl}
-          title={`Mapillary street view at ${latitude}, ${longitude}`}
-          className="absolute inset-0 w-full h-full"
-          allow="fullscreen"
-          loading="lazy"
-          style={{ border: 'none' }}
-        />
-      </div>
+      {loading && (
+        <div className="flex items-center justify-center h-48 text-xs text-gray-400">
+          Loading nearby imagery…
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="p-4 text-xs text-red-600">Failed to load: {error}</div>
+      )}
+
+      {!loading && !error && images.length === 0 && (
+        <div className="p-4 text-xs text-gray-500">
+          No Mapillary imagery found within 500m of these coordinates.
+        </div>
+      )}
+
+      {!loading && active && (
+        <>
+          <div className="relative bg-gray-900" style={{ paddingBottom: '56.25%' }}>
+            <img
+              src={active.image_url}
+              alt={`Mapillary view at ${active.lat}, ${active.lon}`}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded">
+              {distance.toFixed(0)}m from prediction
+            </div>
+          </div>
+
+          {images.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto p-2 bg-gray-50">
+              {images.map((img, i) => (
+                <button
+                  key={img.id}
+                  type="button"
+                  onClick={() => setActiveIdx(i)}
+                  className={`flex-shrink-0 w-16 h-12 rounded overflow-hidden border-2 transition-colors ${
+                    i === activeIdx ? 'border-blue-500' : 'border-transparent hover:border-gray-300'
+                  }`}
+                >
+                  <img src={img.thumb_url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

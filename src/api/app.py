@@ -238,6 +238,21 @@ def create_app() -> FastAPI:
 
 
 def _register_routes(app: FastAPI):
+    @app.get("/api/mapillary/nearby")
+    async def mapillary_nearby(lat: float, lon: float, radius: int = 500, limit: int = 5):
+        """Fetch nearby Mapillary street-level images for visual comparison."""
+        settings = app.state.settings
+        token = settings.geo.mapillary_access_token
+        if not token:
+            return {"images": []}
+        from src.geo.mapillary_client import MapillaryClient
+        client = MapillaryClient(token)
+        try:
+            images = await client.search_nearby(lat, lon, radius_m=radius, limit=limit)
+            return {"images": images}
+        finally:
+            await client.close()
+
     @app.get("/api/health", response_model=HealthResponse)
     async def health():
         settings = app.state.settings
